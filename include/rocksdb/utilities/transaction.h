@@ -214,6 +214,12 @@ class Transaction {
   // longer be valid and should be discarded after a call to ClearSnapshot().
   virtual void ClearSnapshot() = 0;
 
+  // Schedule transaction
+  virtual Status Schedule(int type) = 0;
+
+  // Schedule transaction per key
+  // virtual Status KeySchedule(int type, const std::vector<std::string>& keys) = 0;
+
   // Prepare the current transaction for 2PC
   virtual Status Prepare() = 0;
 
@@ -610,6 +616,27 @@ class Transaction {
 
   virtual TransactionName GetName() const { return name_; }
 
+  virtual void SetCluster(uint16_t cluster) { cluster_ = cluster; }
+
+  virtual uint16_t GetCluster() const { return cluster_; }
+
+  // virtual void SetIndex(uint32_t index) { index_ = index; }
+
+  // virtual uint32_t GetIndex() const { return index_; }
+
+  virtual void SetCV() {
+    std::unique_lock<std::mutex> lock(trx_mtx_);
+    while (!ready_) {
+      cv_.wait(lock);
+    }
+  }
+
+  virtual void ReleaseCV() {
+    std::unique_lock<std::mutex> lock(trx_mtx_);
+    ready_ = true;
+    cv_.notify_all();
+  }
+
   virtual TransactionID GetID() const { return 0; }
 
   virtual bool IsDeadlockDetect() const { return false; }
@@ -672,6 +699,17 @@ class Transaction {
   }
 
   virtual uint64_t GetLastLogNumber() const { return log_number_; }
+
+  // cluster id
+  uint16_t cluster_ = 0;
+
+  // scheduling index
+  // uint32_t index_ = 0;
+
+  // scheduling condition variable
+  bool ready_ = false;
+  std::mutex trx_mtx_;
+  std::condition_variable cv_;
 
  private:
   friend class PessimisticTransactionDB;

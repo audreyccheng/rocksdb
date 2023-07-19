@@ -485,6 +485,16 @@ Status PessimisticTransaction::CommitBatch(WriteBatch* batch) {
   return s;
 }
 
+Status PessimisticTransaction::Schedule(int type) {
+  assert(type >= 0);
+  return Status::OK();
+}
+
+// Status PessimisticTransaction::KeySchedule(int type, const std::vector<std::string>& keys) {
+//   assert(type >= 0);
+//   return Status::OK();
+// }
+
 Status PessimisticTransaction::Prepare() {
   if (name_.empty()) {
     return Status::InvalidArgument(

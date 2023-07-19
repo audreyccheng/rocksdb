@@ -93,6 +93,10 @@ void TransactionBaseImpl::Clear() {
   num_deletes_ = 0;
   num_merges_ = 0;
 
+  cluster_ = 0;
+  // index_ = 0;
+  ready_ = false;
+
   if (dbimpl_->allow_2pc()) {
     InitWriteBatch();
   }
