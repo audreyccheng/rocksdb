@@ -177,11 +177,14 @@ Status OptimisticTransaction::Commit() {
   switch (txn_db_impl->GetValidatePolicy()) {
     case OccValidationPolicy::kValidateParallel:
       s = CommitWithParallelValidate();
+      break;
     case OccValidationPolicy::kValidateSerial:
       s = CommitWithSerialValidate();
+      break;
     default:
       s = CommitWithParallelValidate();
-      assert(0);
+      break;
+      // assert(0);
   }
 
   // unreachable, just void compiler complain
