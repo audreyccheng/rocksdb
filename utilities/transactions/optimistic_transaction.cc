@@ -181,7 +181,7 @@ Status OptimisticTransaction::Commit() {
       s = CommitWithSerialValidate();
     default:
       s = CommitWithParallelValidate();
-      // assert(0);
+      assert(0);
   }
 
   // unreachable, just void compiler complain
