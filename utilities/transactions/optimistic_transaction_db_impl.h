@@ -535,10 +535,10 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   void key_release_next_clust(uint16_t cluster) {
     if (cluster > 100) {
       int idx100 = cluster % 100;
-      int total = 0;
+      // int total = 0;
       for (uint16_t i = 0; i < 10; i++) {
         size_t idx = i + (idx100 - 1) * 10 + 1;
-        total += cluster_hash_[idx].size();
+        // total += cluster_hash_[idx].size();
         release_clust(idx);
       }
       // std::cout << "total staring from: " << (idx100 - 1) * 10 + 1 << " is: " << total << std::endl;

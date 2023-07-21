@@ -154,7 +154,7 @@ void OptimisticTransaction::FreeLock() {
 
   // TODO(accheng): update sched_counts_
   if (this->GetCluster() != 0) {
-    std::cout << "committing cluster: " << this->GetCluster() << std::endl; // <<  " count: " << sched_counts_[this->GetCluster()]->load()
+    // std::cout << "committing cluster: " << this->GetCluster() << std::endl; // <<  " count: " << sched_counts_[this->GetCluster()]->load()
     // // OLD CODE 222
     // txn_db_impl->SubCount(this->GetCluster());
     // this->SetCluster(0); // In case commit fails, mark that we have already freed this cluster
