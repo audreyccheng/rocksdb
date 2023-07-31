@@ -153,6 +153,7 @@ void OptimisticTransaction::FreeLock() {
   assert(txn_db_impl);
 
   // TODO(accheng): update sched_counts_
+  // std::cout << "FreeLock cluster: " << this->GetCluster() << std::endl;
   if (this->GetCluster() != 0) {
     // std::cout << "committing cluster: " << this->GetCluster() << std::endl; // <<  " count: " << sched_counts_[this->GetCluster()]->load()
     // // OLD CODE 222

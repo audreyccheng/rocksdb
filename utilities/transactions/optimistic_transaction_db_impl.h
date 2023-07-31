@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <stdlib.h>
 #include <vector>
 
 #include "db/write_callback.h"
@@ -496,6 +497,21 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   Status NewScheduleImpl(uint16_t cluster, Transaction* txn, WriteCallback* callback) {
     // std::cout << "trx cluster: " << cluster << std::endl;
+
+    // TODO(accheng): don't queue
+    int key_set_size = 3;
+    if (cluster < 100) {
+      key_set_size = 5;
+    }
+    double lookup_prob = (2 * 1.0) / key_set_size;
+    double defer_prob = 0.60;
+    int defer = static_cast<int>((lookup_prob * defer_prob) * 100);
+    if ((rand() % 100) >= defer) {
+      // std::cout << "not queueing cluster: " << cluster << std::endl;
+      txn->SetCluster(0);
+      return Status::OK();
+    }
+
     sys_mutex_.lock();
     // last_index_++;
     // if (last_index_ % 1000 == 0) {
@@ -675,6 +691,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     sys_mutex_.lock();
 
     sched_counts_[cluster]->fetch_sub(1);
+
+    // TODO(accheng): release more than 1?
 
     if (cluster_hash_[cluster].size() == 0) { // sched_counts_[cluster]->load() == 0
       key_release_next_clust(cluster);
