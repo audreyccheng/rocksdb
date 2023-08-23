@@ -334,8 +334,8 @@ Status OptimisticTransaction::Commit() {
                                             OptimisticTransactionDB>(txn_db_);
   assert(txn_db_impl);
 
-  // txn_db_impl->CheckCommitVersions(this);
-  // txn_db_impl->CleanVersions(this, false);
+  txn_db_impl->CheckCommitVersions(this);
+  txn_db_impl->CleanVersions(this, false);
 
   if (this->GetAbort()) {
     return Status::Busy();
@@ -441,8 +441,8 @@ Status OptimisticTransaction::Rollback() {
   // auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
   //                                           OptimisticTransactionDB>(txn_db_);
   // assert(txn_db_impl);
-  // txn_db_impl->CheckCommitVersions(this);
-  // txn_db_impl->CleanVersions(this, true);
+  txn_db_impl->CheckCommitVersions(this);
+  txn_db_impl->CleanVersions(this, true);
 
   FreeLock();
   // // TODO(accheng): update sched_counts_
