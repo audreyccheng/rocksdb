@@ -184,23 +184,23 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
 }
 
 Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
-  // std::string key_str(key.data());
-  // // std::cout << "Put key: " << key_str << std::endl;
-  // auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
-  //                                           OptimisticTransactionDB>(txn_db_);
-  // // if (txn_db_impl->CheckHotKey(key_str)) {
-  //   // std::cout << "Put HOT key: " << key_str << " val_size:" << value.size() << std::endl;
-  //   if (txn_db_impl->AddWriteVersion(key_str, value, this->index_)) {
-  //     size_t len = value.size();
-  //     char* val = new char[len];
-  //     strcpy(val, value.data());
-  //     std::string val_str(val, len);
-  //     this->write_values_[key_str] = val_str;
-  //     // std::cout << "SL Putkey: " << key_str << " val_size:" << this->write_values_[key_str].length() << std::endl;
-  //   } else {
-  //     // std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
-  //     return Status::Busy();
-  //   }
+  std::string key_str(key.data());
+  // std::cout << "Put key: " << key_str << std::endl;
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
+  // if (txn_db_impl->CheckHotKey(key_str)) {
+    std::cout << "Put HOT key: " << key_str << " val_size:" << value.size() << std::endl;
+    if (txn_db_impl->AddWriteVersion(key_str, value, this->index_)) {
+      size_t len = value.size();
+      char* val = new char[len];
+      strcpy(val, value.data());
+      std::string val_str(val, len);
+      this->write_values_[key_str] = val_str;
+      // std::cout << "SL Putkey: " << key_str << " val_size:" << this->write_values_[key_str].length() << std::endl;
+    } else {
+      std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
+      return Status::Busy();
+    }
 
     // if (this->GetCluster() != 0) {
     //   txn_db_impl->KeySubCount(key_str, 1 /* rw */, this->GetIndex());
