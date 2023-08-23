@@ -96,7 +96,7 @@ Status OptimisticTransaction::Schedule(int type) {
 
 Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
   std::string key_str(key.data());
-  std::cout << "Get key: " << key_str << std::endl;
+  // std::cout << "Get key: " << key_str << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -113,11 +113,11 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
       this->read_versions_[key_str] = rp.first;
       this->read_values_[key_str] = rp.second;
       value->assign(this->read_values_[key_str].c_str(), this->read_values_[key_str].length());
-      std::cout << "Getkey: " << key_str
-      << " rp.second size: " << rp.second.length()
-      << " rvalue size: " << this->read_values_[key_str].length()
-      << " value size: " << value->length()
-      << std::endl;
+      // std::cout << "Getkey: " << key_str
+      // << " rp.second size: " << rp.second.length()
+      // << " rvalue size: " << this->read_values_[key_str].length()
+      // << " value size: " << value->length()
+      // << std::endl;
     }
     // else {
     //   std::string empty("");
@@ -144,7 +144,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
                               std::string* value, bool exclusive,
                               const bool do_validate) {
   std::string key_str(key.data());
-  std::cout << "GetForUpdate key: " << key_str << std::endl;
+  // std::cout << "GetForUpdate key: " << key_str << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -160,11 +160,11 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
       this->read_versions_[key_str] = rp.first;
       this->read_values_[key_str] = rp.second;
       value->assign(this->read_values_[key_str].c_str(), this->read_values_[key_str].length());
-      std::cout << "GetForUpdate key: " << key_str
-      << " rp.second size: " << rp.second.length()
-      << " rvalue size: " << this->read_values_[key_str].length()
-      << " value size: " << value->length()
-      << std::endl;
+      // std::cout << "GetForUpdate key: " << key_str
+      // << " rp.second size: " << rp.second.length()
+      // << " rvalue size: " << this->read_values_[key_str].length()
+      // << " value size: " << value->length()
+      // << std::endl;
     }
     // else {
     //   std::string empty("");
@@ -189,7 +189,7 @@ Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   // if (txn_db_impl->CheckHotKey(key_str)) {
-    std::cout << "Put HOT key: " << key_str << " val_size:" << value.size() << std::endl;
+    // std::cout << "Put HOT key: " << key_str << " val_size:" << value.size() << std::endl;
     if (txn_db_impl->AddWriteVersion(key_str, value, this->index_)) {
       size_t len = value.size();
       char* val = new char[len];
@@ -198,7 +198,7 @@ Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
       this->write_values_[key_str] = val_str;
       // std::cout << "SL Putkey: " << key_str << " val_size:" << this->write_values_[key_str].length() << std::endl;
     } else {
-      std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
+      // std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
       return Status::Busy();
     }
 
