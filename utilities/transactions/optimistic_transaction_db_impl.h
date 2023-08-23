@@ -1004,8 +1004,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       char* val = new char[len];
       strcpy(val, value.data());
       std::string val_str(val, len);
-      Slice temp = Slice(val_str);
-      Slice temp2 = Slice(value.data());
+      // Slice temp = Slice(val_str);
+      // Slice temp2 = Slice(value.data());
       write_versions_[key].emplace_back(std::make_pair(id, val_str));
       std::cout << "value.size(): " << value.size()  << " value.data().size(): " << strlen(value.data())
       << " val_str.size(): " << val_str.length() << " temp size: " << temp.size() << " temp2 size: " << temp2.size()
