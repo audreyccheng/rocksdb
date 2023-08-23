@@ -511,7 +511,7 @@ Status PessimisticTransaction::GetForUpdateKey(const ReadOptions& options, const
 }
 
 Status PessimisticTransaction::PutKey(const Slice& key, const Slice& value) {
-  if (key.size() == 0 || value == nullptr) {
+  if (key.size() == 0 || value.size() == 0) {
     return Status::OK();
   }
   return Status::OK();
