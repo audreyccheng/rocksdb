@@ -963,7 +963,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       AddKey(key);
     }
 
-    // std::cout << "AddReadVersion: " << key << " id: " << id << std::endl;
+    std::cout << "AddReadVersion: " << key << " id: " << id << std::endl;
     // uint32_t idx = key_to_int_map_[key];
     std::pair<uint32_t, std::string> rp = std::make_pair(0, "");
     // versions_mutexes_[idx].lock();
@@ -975,8 +975,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       rp.first = write_versions_[key][write_versions_[key].size() - 1].first;
       rp.second = write_versions_[key][write_versions_[key].size() - 1].second;
       // rp = &(write_versions_[key][write_versions_[key].size() - 1]);
-      // std::cout << "VReadVersion: " << key << " id: " << rp.first
-      // << " val.size() :" << rp.second.length() << std::endl;
+      std::cout << "VReadVersion: " << key << " id: " << rp.first
+      << " val.size() :" << rp.second.length() << std::endl;
     }
 
     // versions_mutexes_[idx].unlock();
@@ -990,8 +990,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       AddKey(key);
     }
 
-    // std::cout << "AddWriteVersion: " << key << " id: " << id << " highest_rv_[key]: " << highest_rv_[key]
-    // << " val.size() :" << value.size() << std::endl;
+    std::cout << "AddWriteVersion: " << key << " id: " << id << " highest_rv_[key]: " << highest_rv_[key]
+    << " val.size() :" << value.size() << std::endl;
 
     // uint32_t idx = key_to_int_map_[key];
     bool success = true;
@@ -1004,13 +1004,13 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       char* val = new char[len];
       strcpy(val, value.data());
       std::string val_str(val, len);
-      // Slice temp = Slice(val_str);
-      // Slice temp2 = Slice(value.data());
+      Slice temp = Slice(val_str);
+      Slice temp2 = Slice(value.data());
       write_versions_[key].emplace_back(std::make_pair(id, val_str));
-      // std::cout << "value.size(): " << value.size()  << " value.data().size(): " << strlen(value.data())
-      // << " val_str.size(): " << val_str.length() << " temp size: " << temp.size() << " temp2 size: " << temp2.size()
-      // << " write_versions_[key] size: " << write_versions_[key][write_versions_[key].size() - 1].second.length()
-      // << std::endl;
+      std::cout << "value.size(): " << value.size()  << " value.data().size(): " << strlen(value.data())
+      << " val_str.size(): " << val_str.length() << " temp size: " << temp.size() << " temp2 size: " << temp2.size()
+      << " write_versions_[key] size: " << write_versions_[key][write_versions_[key].size() - 1].second.length()
+      << std::endl;
     }
 
     // versions_mutexes_[idx].unlock();
@@ -1024,9 +1024,9 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     txn->SetIndex(last_index_);
     ongoing_map_[txn->GetIndex()] = std::vector<uint32_t>();
     ongoing_txns_map_[txn->GetIndex()] = txn;
-    // std::cout << "TScheduleImpl txn: " << txn->GetIndex()
-    // << " ongoing_map_ size: " << ongoing_map_.size()
-    // << std::endl;
+    std::cout << "TScheduleImpl txn: " << txn->GetIndex()
+    << " ongoing_map_ size: " << ongoing_map_.size()
+    << std::endl;
     // // hk_txns_map_[txn->GetIndex()] = txn;
     // // std::cout << "hk_txns_map_.size(): " << hk_txns_map_.size() << " txn: " << txn->GetIndex() << std::endl;
 

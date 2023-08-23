@@ -335,7 +335,7 @@ Status OptimisticTransaction::Commit() {
   assert(txn_db_impl);
 
   // txn_db_impl->CheckCommitVersions(this);
-  txn_db_impl->CleanVersions(this, false);
+  // txn_db_impl->CleanVersions(this, false);
 
   if (this->GetAbort()) {
     return Status::Busy();
@@ -420,8 +420,9 @@ Status OptimisticTransaction::CommitWithParallelValidate() {
     }
   });
 
-  Status s = Status::OK(); //TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
-                            //                        true /* cache_only */);
+  // Status s = Status::OK(); //
+  Status s = TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
+                                                    true /* cache_only */);
   if (!s.ok()) {
     FreeLock();
     return s;
@@ -441,7 +442,7 @@ Status OptimisticTransaction::Rollback() {
                                             OptimisticTransactionDB>(txn_db_);
   assert(txn_db_impl);
   // txn_db_impl->CheckCommitVersions(this);
-  txn_db_impl->CleanVersions(this, true);
+  // txn_db_impl->CleanVersions(this, true);
 
   FreeLock();
   // // TODO(accheng): update sched_counts_
@@ -501,9 +502,9 @@ Status OptimisticTransaction::CheckTransactionForConflicts(DB* db) {
   // we will do a cache-only conflict check.  This can result in TryAgain
   // getting returned if there is not sufficient memtable history to check
   // for conflicts.
-  return Status::OK();
-  // return TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
-  //                                               true /* cache_only */);
+  // return Status::OK();
+  return TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
+                                                true /* cache_only */);
 }
 
 Status OptimisticTransaction::SetName(const TransactionName& /* unused */) {
