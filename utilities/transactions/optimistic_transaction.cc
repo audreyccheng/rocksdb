@@ -56,10 +56,32 @@ OptimisticTransaction::~OptimisticTransaction() {}
 
 void OptimisticTransaction::Clear() { TransactionBaseImpl::Clear(); }
 
-Status OptimisticTransaction::Schedule(int type) {
-  // Set up callback which will schedule this transaction.
-  OptimisticScheduleCallback callback(this);
+// Status OptimisticTransaction::Schedule(int type) {
+//   // Set up callback which will schedule this transaction.
+//   OptimisticScheduleCallback callback(this);
 
+//   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+//                                             OptimisticTransactionDB>(txn_db_);
+//   assert(txn_db_impl);
+
+//   uint16_t cluster = (uint16_t) type;
+//   this->SetCluster(cluster);
+
+//   Status s;
+//   // // NEW CODE
+//   // // if (cluster > 20) {
+//   //   s = txn_db_impl->PartialScheduleImpl(cluster, this, &callback);
+//   // // } else {
+//   // // // OLD CODE
+//   // // s = txn_db_impl->ScheduleImpl(cluster, this, &callback);
+//   // // }
+
+//   s = txn_db_impl->NewScheduleImpl(cluster, this, &callback);
+
+//   return s;
+// }
+
+Status OptimisticTransaction::Schedule(int type) {
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   assert(txn_db_impl);
@@ -67,19 +89,157 @@ Status OptimisticTransaction::Schedule(int type) {
   uint16_t cluster = (uint16_t) type;
   this->SetCluster(cluster);
 
-  Status s;
-  // // NEW CODE
-  // // if (cluster > 20) {
-  //   s = txn_db_impl->PartialScheduleImpl(cluster, this, &callback);
-  // // } else {
-  // // // OLD CODE
-  // // s = txn_db_impl->ScheduleImpl(cluster, this, &callback);
-  // // }
-
-  s = txn_db_impl->NewScheduleImpl(cluster, this, &callback);
+  Status s = txn_db_impl->TScheduleImpl(cluster, this);
 
   return s;
 }
+
+Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
+  std::string key_str(key.data());
+  // std::cout << "Get key: " << key_str << std::endl;
+  bool get_success = false;
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
+
+  // if (txn_db_impl->CheckHotKey(key_str)) {
+    // std::cout << "Get HOT key: " << key_str << std::endl;
+    // if (this->GetCluster() != 0) {
+    //   txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 0 /* rw */, this);
+    // }
+
+    auto rp = txn_db_impl->AddReadVersion(key_str, this->index_); // if id == 0, fetch from DB
+    if (rp.first != 0) {
+      get_success = true;
+      this->read_versions_[key_str] = rp.first;
+      this->read_values_[key_str] = rp.second;
+      value->assign(this->read_values_[key_str].c_str(), this->read_values_[key_str].length());
+      // std::cout << "Getkey: " << key_str
+      // << " rp.second size: " << rp.second.length()
+      // << " rvalue size: " << this->read_values_[key_str].length()
+      // << " value size: " << value->length()
+      // << std::endl;
+    }
+    // else {
+    //   std::string empty("");
+    //   value->assign(empty.c_str(), empty.length());
+    //   std::cout << "NO VALUE GetForUpdate key: " << key_str << std::endl;
+    //   // return Status::Busy();
+    // }
+
+    // if (this->GetCluster() != 0) {
+    //   txn_db_impl->KeySubCount(key_str, 0 /* rw */, this->GetIndex());
+    // }
+  // }
+
+  // still call Get to get the right lock
+  auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
+  if (get_success) {
+    std::string temp_value;
+    return txn_impl->Get(options, key, &temp_value);
+  }
+  return txn_impl->Get(options, key, value);
+}
+
+Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const Slice& key,
+                              std::string* value, bool exclusive,
+                              const bool do_validate) {
+  std::string key_str(key.data());
+  // std::cout << "GetForUpdate key: " << key_str << std::endl;
+  bool get_success = false;
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
+  // if (txn_db_impl->CheckHotKey(key_str)) {
+    // std::cout << "GetForUpdate HOT key: " << key_str << std::endl;
+    // if (this->GetCluster() != 0) {
+    //   txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
+    // }
+
+    auto rp = txn_db_impl->AddReadVersion(key_str, this->index_); // if id == 0, fetch from DB
+    if (rp.first != 0) {
+      get_success = true;
+      this->read_versions_[key_str] = rp.first;
+      this->read_values_[key_str] = rp.second;
+      value->assign(this->read_values_[key_str].c_str(), this->read_values_[key_str].length());
+      // std::cout << "GetForUpdate key: " << key_str
+      // << " rp.second size: " << rp.second.length()
+      // << " rvalue size: " << this->read_values_[key_str].length()
+      // << " value size: " << value->length()
+      // << std::endl;
+    }
+    // else {
+    //   std::string empty("");
+    //   value->assign(empty.c_str(), empty.length());
+    //   std::cout << "NO VALUE GetForUpdate key: " << key_str << std::endl;
+    //   // return Status::Busy();
+    // }
+  // }
+
+  // still call Get to get the right lock
+  auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
+  if (get_success && value->length() > 0) {
+    std::string temp_value;
+    return txn_impl->GetForUpdate(options, key, &temp_value, exclusive, do_validate);
+  }
+  return txn_impl->GetForUpdate(options, key, value, exclusive, do_validate);
+}
+
+Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
+  std::string key_str(key.data());
+  // std::cout << "Put key: " << key_str << std::endl;
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
+  // if (txn_db_impl->CheckHotKey(key_str)) {
+    // std::cout << "Put HOT key: " << key_str << " val_size:" << value.size() << std::endl;
+    if (txn_db_impl->AddWriteVersion(key_str, value, this->index_)) {
+      size_t len = value.size();
+      char* val = new char[len];
+      strcpy(val, value.data());
+      std::string val_str(val, len);
+      this->write_values_[key_str] = val_str;
+      // std::cout << "SL Putkey: " << key_str << " val_size:" << this->write_values_[key_str].length() << std::endl;
+    } else {
+      // std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
+      return Status::Busy();
+    }
+
+    // if (this->GetCluster() != 0) {
+    //   txn_db_impl->KeySubCount(key_str, 1 /* rw */, this->GetIndex());
+    // }
+  // }
+
+  auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
+  return txn_impl->Put(key, value);
+}
+
+Status OptimisticTransaction::DeleteKey(const Slice& key) {
+  std::string key_str(key.data());
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
+  // std::cout << "Delete HOT key: " << key_str << std::endl;
+    if (txn_db_impl->AddWriteVersion(key_str, Slice(), this->index_)) {
+      this->write_values_[key_str] = "";
+      // std::cout << "SL Deletekey: " << key_str << " val_size:" << this->write_values_[key_str].length() << std::endl;
+    } else {
+      // std::cout << "MVTSO Delete fail! key: " << key_str << std::endl;
+      return Status::Busy();
+    }
+
+  auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
+  return txn_impl->Delete(key);
+}
+
+Status OptimisticTransaction::LoadHotKey(const Slice& key, const Slice& value, bool isReadWrite) {
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
+  std::string key_str(key.data());
+  std::string val_str(value.data());
+  std::cout << "LoadHotKey value: " << val_str << " key: " << key_str << " rw: " << isReadWrite << std::endl;
+  uint16_t val = (uint16_t) stoi(val_str);
+  txn_db_impl->AddHotKey(key_str, val, (uint16_t) isReadWrite);
+
+  return Status::OK();
+}
+
 
 // Status OptimisticTransaction::KeySchedule(int type, const std::vector<std::string>& keys) {
 //   // Set up callback which will schedule this transaction
@@ -174,6 +334,13 @@ Status OptimisticTransaction::Commit() {
                                             OptimisticTransactionDB>(txn_db_);
   assert(txn_db_impl);
 
+  // txn_db_impl->CheckCommitVersions(this);
+  txn_db_impl->CleanVersions(this, false);
+
+  if (this->GetAbort()) {
+    return Status::Busy();
+  }
+
   Status s = Status::OK();
   switch (txn_db_impl->GetValidatePolicy()) {
     case OccValidationPolicy::kValidateParallel:
@@ -253,8 +420,8 @@ Status OptimisticTransaction::CommitWithParallelValidate() {
     }
   });
 
-  Status s = TransactionUtil::CheckKeysForConflicts(db_impl, *tracked_locks_,
-                                                    true /* cache_only */);
+  Status s = Status::OK(); //TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
+                            //                        true /* cache_only */);
   if (!s.ok()) {
     FreeLock();
     return s;
@@ -273,6 +440,8 @@ Status OptimisticTransaction::Rollback() {
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   assert(txn_db_impl);
+  // txn_db_impl->CheckCommitVersions(this);
+  txn_db_impl->CleanVersions(this, true);
 
   FreeLock();
   // // TODO(accheng): update sched_counts_
@@ -324,13 +493,17 @@ Status OptimisticTransaction::TryLock(ColumnFamilyHandle* column_family,
 // in detecting write conflicts.
 Status OptimisticTransaction::CheckTransactionForConflicts(DB* db) {
   auto db_impl = static_cast_with_check<DBImpl>(db);
+  if (db_impl == nullptr) {
+    return Status::OK();
+  }
 
   // Since we are on the write thread and do not want to block other writers,
   // we will do a cache-only conflict check.  This can result in TryAgain
   // getting returned if there is not sufficient memtable history to check
   // for conflicts.
-  return TransactionUtil::CheckKeysForConflicts(db_impl, *tracked_locks_,
-                                                true /* cache_only */);
+  return Status::OK();
+  // return TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
+  //                                               true /* cache_only */);
 }
 
 Status OptimisticTransaction::SetName(const TransactionName& /* unused */) {

@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <vector>
 
@@ -133,6 +135,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   }
 
   OccValidationPolicy GetValidatePolicy() const { return validate_policy_; }
+
+  bool CheckHotKey(const std::string& key) { return (hot_keys_.find(key) != hot_keys_.end()); }
 
   port::Mutex& GetLockBucket(const Slice& key, uint64_t seed) {
     return bucketed_locks_->GetLockBucket(key, seed);
@@ -925,6 +929,269 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   //   sys_mutex_.unlock();
   // }
 
+  void AddKey(const std::string& key) {
+
+    // sys_mutex_.lock();
+    if (all_keys_.find(key) == all_keys_.end()) {
+      uint32_t id = (uint32_t) all_keys_.size();
+      all_keys_.insert(key);
+      key_to_int_map_[key] = id;
+
+      read_versions_[key] = std::vector<uint32_t>();
+      write_versions_[key] = std::vector<std::pair<uint32_t, std::string>>();
+      highest_rv_[key] = 0;
+      // highest_wv_[k] = 0;
+
+      // versions_mutexes_.emplace_back();
+
+      // hk_sched_counts_[id] = std::vector<uint32_t>(2);
+      // hk_read_queue_[id] = std::set<uint32_t>();
+      // hk_rw_queue_[id] = std::set<uint32_t>();
+      // ex_hk_reads_[id] = std::set<uint32_t>();
+      // ex_hk_rws_[id] = std::set<uint32_t>();
+
+      // std::vector<std::mutex> temp3(id + 1);
+      // hk_mutexes_.swap(temp3);
+    }
+    // std::cout << "AddKey kid: " << key_to_int_map_[key] << " versions_mutexes_.size(): " << versions_mutexes_.size() << std::endl;
+    // sys_mutex_.unlock();
+  }
+
+  std::pair<uint32_t, std::string> AddReadVersion(const std::string& key, const uint32_t id) {
+    std::unique_lock<decltype(vm_)> lock(vm_);
+    if (all_keys_.find(key) == all_keys_.end()) {
+      AddKey(key);
+    }
+
+    // std::cout << "AddReadVersion: " << key << " id: " << id << std::endl;
+    // uint32_t idx = key_to_int_map_[key];
+    std::pair<uint32_t, std::string> rp = std::make_pair(0, "");
+    // versions_mutexes_[idx].lock();
+
+    read_versions_[key].emplace_back(id);
+    highest_rv_[key] = std::max(id, highest_rv_[key]);
+
+    if (write_versions_[key].size() != 0) {
+      rp.first = write_versions_[key][write_versions_[key].size() - 1].first;
+      rp.second = write_versions_[key][write_versions_[key].size() - 1].second;
+      // rp = &(write_versions_[key][write_versions_[key].size() - 1]);
+      // std::cout << "VReadVersion: " << key << " id: " << rp.first
+      // << " val.size() :" << rp.second.length() << std::endl;
+    }
+
+    // versions_mutexes_[idx].unlock();
+
+    return rp;
+  }
+
+  bool AddWriteVersion(const std::string& key, const Slice& value, const uint32_t id) {
+    std::unique_lock<decltype(vm_)> lock(vm_);
+    if (all_keys_.find(key) == all_keys_.end()) {
+      AddKey(key);
+    }
+
+    // std::cout << "AddWriteVersion: " << key << " id: " << id << " highest_rv_[key]: " << highest_rv_[key]
+    // << " val.size() :" << value.size() << std::endl;
+
+    // uint32_t idx = key_to_int_map_[key];
+    bool success = true;
+    // versions_mutexes_[idx].lock();
+
+    if (highest_rv_[key] > id) {
+      success = false;
+    } else {
+      size_t len = value.size();
+      char* val = new char[len];
+      strcpy(val, value.data());
+      std::string val_str(val, len);
+      // Slice temp = Slice(val_str);
+      // Slice temp2 = Slice(value.data());
+      write_versions_[key].emplace_back(std::make_pair(id, val_str));
+      // std::cout << "value.size(): " << value.size()  << " value.data().size(): " << strlen(value.data())
+      // << " val_str.size(): " << val_str.length() << " temp size: " << temp.size() << " temp2 size: " << temp2.size()
+      // << " write_versions_[key] size: " << write_versions_[key][write_versions_[key].size() - 1].second.length()
+      // << std::endl;
+    }
+
+    // versions_mutexes_[idx].unlock();
+
+    return success;
+  }
+
+  Status TScheduleImpl(uint16_t cluster, Transaction* txn) {
+    sys_mutex_.lock();
+    last_index_++;
+    txn->SetIndex(last_index_);
+    ongoing_map_[txn->GetIndex()] = std::vector<uint32_t>();
+    ongoing_txns_map_[txn->GetIndex()] = txn;
+    // std::cout << "TScheduleImpl txn: " << txn->GetIndex()
+    // << " ongoing_map_ size: " << ongoing_map_.size()
+    // << std::endl;
+    // // hk_txns_map_[txn->GetIndex()] = txn;
+    // // std::cout << "hk_txns_map_.size(): " << hk_txns_map_.size() << " txn: " << txn->GetIndex() << std::endl;
+
+    // // TODO(accheng): get hot keys from cluster
+    if (cluster != 0) {
+      std::cout << "cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
+
+    //   for (auto p : clust_hk_map_[cluster]) {
+    //     if (p.second == 0) {
+    //       ex_hk_reads_[p.first].insert(txn->GetIndex());
+    //     } else {
+    //       ex_hk_rws_[p.first].insert(txn->GetIndex());
+    //     }
+    //   }
+    }
+
+    sys_mutex_.unlock();
+
+    return Status::OK();
+  }
+
+  void ClearReadVersion(const std::string& key, const uint32_t id) {
+    std::unique_lock<decltype(vm_)> lock(vm_);
+    // std::cout << "ClearReadVersion key: " << key << " id: " << id << std::endl;
+    // uint32_t idx = key_to_int_map_[key];
+    // versions_mutexes_[idx].lock();
+
+    read_versions_[key].erase(
+      std::remove(read_versions_[key].begin(), read_versions_[key].end(), id),
+      read_versions_[key].end());
+
+    // versions_mutexes_[idx].unlock();
+  }
+
+  void ClearWriteVersion(const std::string& key, const std::string& value, const uint32_t id) {
+    std::unique_lock<decltype(vm_)> lock(vm_);
+    // std::cout << "ClearWriteVersion key: " << key << " val size: " << value.length() << " id: " << id << std::endl;
+    // uint32_t idx = key_to_int_map_[key];
+    // versions_mutexes_[idx].lock();
+
+    write_versions_[key].erase(
+      std::remove(write_versions_[key].begin(), write_versions_[key].end(), std::make_pair(id, value)),
+      write_versions_[key].end());
+
+    // versions_mutexes_[idx].unlock();
+  }
+
+  void CheckCommitVersions(Transaction* txn) {
+    // std::cout << "CheckCommitVersions tid: " << txn->GetIndex() << " size: " << txn->GetReadVersions().size() << std::endl;
+    // check if dep on any ongoing txns --> is ongoing txn in ongoing_txns set?
+    // wait on txns if so
+    auto txn_rv = txn->GetReadVersions();
+    for (auto it = txn_rv.begin(); it != txn_rv.end(); it++) {
+      sys_mutex_.lock();
+      if (auto s = ongoing_map_.find(it->second); s != ongoing_map_.end()) {
+        ongoing_map_[it->second].emplace_back(txn->GetIndex());
+      //   std::cout << "Queuing id: " << txn->GetIndex() << " on tid: " << it->second
+      // << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
+      // << std::endl;
+        sys_mutex_.unlock();
+        queue_trx(txn);
+      } else {
+        sys_mutex_.unlock();
+      }
+    }
+    // sys_mutex_.lock();
+    // uint32_t max_id = 0;
+    // for (auto it = txn_rv.begin(); it != txn_rv.end(); it++) {
+    //   if (auto s = ongoing_map_.find(it->second); s != ongoing_map_.end()) {
+    //     max_id = std::max(max_id, it->second);
+    //   }
+    // }
+    // if (max_id != 0) {
+    //   ongoing_map_[max_id].emplace_back(txn->GetIndex());
+    //   std::cout << "Queuing id: " << txn->GetIndex() << " on tid: " << max_id
+    //   << " found? " << (ongoing_map_.find(max_id) != ongoing_map_.end())
+    //   << std::endl;
+    // }
+    // sys_mutex_.unlock();
+    // if (max_id != 0 && txn->GetIndex() - max_id < 10) { //{//}
+    //   queue_trx(txn);
+    // }
+  }
+
+  void CleanVersions(Transaction* txn, bool abort) {
+    // std::cout << "CleanVersions tid: " << txn->GetIndex() << " abort:" << abort << " size: " << txn->GetReadVersions().size()
+    // << " size2: " << txn->GetWriteValues().size() << std::endl;
+    txn->SetAbort(abort || txn->GetAbort());
+
+
+
+    // std::cout << "DONE cleaning" << std::endl;
+
+    sys_mutex_.lock();
+    if (ongoing_map_.find(txn->GetIndex()) == ongoing_map_.end()) {
+      // std::cout << "NO ONGOING ongoing_map_ tid: " << txn->GetIndex() << " size:" << ongoing_map_.size() << std::endl;
+      sys_mutex_.unlock();
+      return;
+    }
+
+    // release semaphore for this txn to free any deps
+
+    // std::cout << "ongoing_map_ tid: " << txn->GetIndex() << " size:" << ongoing_map_.size() << " key size: " << ongoing_map_[txn->GetIndex()].size() << std::endl;
+    for (uint32_t id : ongoing_map_[txn->GetIndex()]) {
+      if (ongoing_txns_map_.find(id) != ongoing_txns_map_.end()) {
+        // std::cout << "CCC---commit ongoing_map: " << id <<  " txn: " << txn->GetIndex() << std::endl;
+        ongoing_txns_map_[id]->SetAbort(txn->GetAbort());
+        ongoing_txns_map_[id]->ReleaseCV();
+      }
+    }
+    ongoing_map_.erase(txn->GetIndex()); // ongoing_map_.find(txn->GetIndex()), ongoing_map_.end());
+    ongoing_txns_map_.erase(txn->GetIndex()); // ongoing_txns_map_.find(txn->GetIndex()), ongoing_txns_map_.end());
+    // std::cout << "EEE---commit ongoing_txns_map_.size(): " << ongoing_txns_map_.size() << " txn: " << txn->GetIndex() << std::endl;
+
+    if (txn->GetAbort()) {
+      // TODO(accheng): don't need sys_mutex lock?
+      // clear read and write versions
+      auto txn_rv = txn->GetReadVersions();
+      for (auto it = txn_rv.begin(); it != txn_rv.end(); it++) {
+        ClearReadVersion(it->first, txn->GetIndex());
+      }
+
+      auto txn_wv = txn->GetWriteValues();
+      for (auto it = txn_wv.begin(); it != txn_wv.end(); it++) {
+        ClearWriteVersion(it->first, it->second, txn->GetIndex());
+      }
+    }
+    // txn->ClearReadVersions();
+    // txn->ClearWriteValues();
+    sys_mutex_.unlock();
+  }
+
+  void AddHotKey(const std::string& key, uint16_t cluster, uint16_t rw) {
+    sys_mutex_.lock();
+    if (hot_keys_.find(key) == hot_keys_.end()) {
+      uint32_t id = (uint32_t) hot_keys_.size();
+      hot_keys_.insert(key);
+      key_to_int_map_[key] = id;
+
+      read_versions_[key] = std::vector<uint32_t>();
+      write_versions_[key] = std::vector<std::pair<uint32_t, std::string>>();
+      highest_rv_[key] = 0;
+      // highest_wv_[k] = 0;
+
+      // std::vector<std::mutex> temp2(id + 1);
+      // versions_mutexes_.swap(temp2);
+
+      hk_sched_counts_[id] = std::vector<uint32_t>(2);
+      hk_read_queue_[id] = std::set<uint32_t>();
+      hk_rw_queue_[id] = std::set<uint32_t>();
+      ex_hk_reads_[id] = std::set<uint32_t>();
+      ex_hk_rws_[id] = std::set<uint32_t>();
+
+      std::vector<std::mutex> temp3(id + 1);
+      hk_mutexes_.swap(temp3);
+    }
+
+    uint32_t idx = key_to_int_map_[key];
+    if (std::find(clust_hk_map_[cluster].begin(), clust_hk_map_[cluster].end(), std::make_pair(idx, rw)) == clust_hk_map_[cluster].end()) {
+      clust_hk_map_[cluster].emplace_back(std::make_pair(idx, rw));
+      std::cout << "added hot key: " << key << " cluster: " << cluster << " rw: " << rw << " idx: " << idx << std::endl;
+    }
+    sys_mutex_.unlock();
+  }
+
  private:
   std::shared_ptr<OccLockBucketsImplBase> bucketed_locks_;
 
@@ -944,6 +1211,35 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   // Protected map of <cluster, callbacks>
   std::vector<std::mutex> cluster_hash_mutexes_;
   std::map<uint16_t, std::vector<WriteCallback *>> cluster_hash_;
+
+  std::map<uint32_t, std::vector<uint32_t>> ongoing_map_;
+  std::map<uint32_t, Transaction *> ongoing_txns_map_;
+
+
+  std::unordered_set<std::string> all_keys_;
+  std::map<std::string, uint32_t> key_to_int_map_;
+  std::deque<std::mutex> versions_mutexes_;
+
+  // std::vector<std::mutex> versions_mutexes_; // locks for hot key version histories
+  std::mutex vm_;
+  std::map<std::string, std::vector<uint32_t>> read_versions_; // <hot key, id>
+  std::map<std::string, std::vector<std::pair<uint32_t, std::string>>> write_versions_; // <hot key, (id, value)>
+  std::map<std::string, uint32_t> highest_rv_; // largest known read id per hot key
+  // std::map<std::string, uint32_t> highest_wv_; // largest known write id per hot key
+
+  std::unordered_set<std::string> hot_keys_;
+  std::map<std::string, uint32_t> hkey_to_int_map_; // assign int id to each hot key
+
+  std::vector<std::mutex> hk_mutexes_; // locks for hot key sched structs
+  // std::map<uint32_t, Transaction *> hk_txns_map_; // <txn id, Txn*>
+  std::map<uint32_t, std::vector<uint32_t>> hk_sched_counts_; // <hot key as int, [read_sched_counts, rw_sched_counts]
+  std::map<uint32_t, std::set<uint32_t>> hk_read_queue_; // <hot key as int, [list of txn ids needing to read queued]
+  std::map<uint32_t, std::set<uint32_t>> hk_rw_queue_; // <hot key as int, [list of txn ids needing to rw queued]
+  std::map<uint32_t, std::set<uint32_t>> ex_hk_reads_; // <hot key as int, [list of expected reads in order]
+  std::map<uint32_t, std::set<uint32_t>> ex_hk_rws_; // <hot key as int, [list of expected rws in order]
+
+  // TODO(accheng): need to manually initialize
+  std::map<uint16_t, std::vector<std::pair<uint32_t, uint16_t>>> clust_hk_map_; // <cluster, [(hot key as int, r or r/w)]
 
   // // protected by sys_mutex
   // uint32_t max_queue_len_; // threshold on batch size

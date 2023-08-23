@@ -42,6 +42,23 @@ class OptimisticTransaction : public TransactionBaseImpl {
 
   Status Schedule(int type) override;
 
+  using Transaction::GetKey;
+  Status GetKey(const ReadOptions& options, const Slice& key, std::string* value) override;
+
+  using Transaction::GetForUpdateKey;
+  Status GetForUpdateKey(const ReadOptions& options, const Slice& key,
+                              std::string* value, bool exclusive,
+                              const bool do_validate) override;
+
+  using Transaction::PutKey;
+  Status PutKey(const Slice& key, const Slice& value) override;
+
+  using Transaction::DeleteKey;
+  Status DeleteKey(const Slice& key) override;
+
+  using Transaction::LoadHotKey;
+  Status LoadHotKey(const Slice& key, const Slice& value, bool isReadWrite) override;
+
   // Status KeySchedule(int type, const std::vector<std::string>& keys) override;
 
   // using Transaction::Get;
@@ -123,6 +140,10 @@ class OptimisticScheduleCallback : public WriteCallback {
 
   Status Callback(DB* db) override {
     assert(db != nullptr);
+    if (db == nullptr) {
+      return Status::Busy();
+    }
+
     // TODO(accheng): after schedule successful
     auto txn_impl = reinterpret_cast<Transaction*>(txn_);
     txn_impl->ReleaseCV();

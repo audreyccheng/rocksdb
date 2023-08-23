@@ -11,6 +11,7 @@
 #include <jni.h>
 
 #include <functional>
+#include <iostream>
 
 #include "include/org_rocksdb_Transaction.h"
 #include "rocksjni/cplusplus_to_java_convert.h"
@@ -258,6 +259,61 @@ jbyteArray Java_org_rocksdb_Transaction_get__JJ_3BI(
   return txn_get_helper(env, fn_get, jread_options_handle, jkey, jkey_part_len);
 }
 
+/*
+ * Class:     org_rocksdb_Transaction
+ * Method:    getKey
+ * Signature: (JJ[BI)[B
+ */
+jbyteArray Java_org_rocksdb_Transaction_getKeyT( //__JJ_3BI
+    JNIEnv* env, jobject /*jobj*/, jlong jhandle, jlong jread_options_handle,
+    jbyteArray jkey, jint jkey_part_len) {
+  auto* txn = reinterpret_cast<ROCKSDB_NAMESPACE::Transaction*>(jhandle);
+
+  jbyte* key = env->GetByteArrayElements(jkey, nullptr);
+  if (key == nullptr) {
+    // exception thrown: OutOfMemoryError
+    return nullptr;
+  }
+  ROCKSDB_NAMESPACE::Slice key_slice(reinterpret_cast<char*>(key),
+                                     jkey_part_len);
+
+  auto* read_options =
+      reinterpret_cast<ROCKSDB_NAMESPACE::ReadOptions*>(jread_options_handle);
+  std::string value;
+  ROCKSDB_NAMESPACE::Status s = txn->GetKey(*read_options, key_slice, &value);
+  // if (value.empty()) {
+  //   value = "";
+  // }
+
+  // trigger java unref on key.
+  // by passing JNI_ABORT, it will simply release the reference without
+  // copying the result back to the java byte array.
+  env->ReleaseByteArrayElements(jkey, key, JNI_ABORT);
+
+  if (s.IsNotFound()) {
+    return nullptr;
+  }
+
+  if (s.ok()) {
+    jbyteArray jret_value = env->NewByteArray(static_cast<jsize>(value.size()));
+    if (jret_value == nullptr) {
+      // exception thrown: OutOfMemoryError
+      return nullptr;
+    }
+    env->SetByteArrayRegion(
+        jret_value, 0, static_cast<jsize>(value.size()),
+        const_cast<jbyte*>(reinterpret_cast<const jbyte*>(value.c_str())));
+    if (env->ExceptionCheck()) {
+      // exception thrown: ArrayIndexOutOfBoundsException
+      return nullptr;
+    }
+    return jret_value;
+  }
+
+  ROCKSDB_NAMESPACE::RocksDBExceptionJni::ThrowNew(env, s);
+  return nullptr;
+}
+
 // TODO(AR) consider refactoring to share this between here and rocksjni.cc
 // used by txn_multi_get_helper below
 std::vector<ROCKSDB_NAMESPACE::ColumnFamilyHandle*> txn_column_families_helper(
@@ -487,6 +543,64 @@ jbyteArray Java_org_rocksdb_Transaction_getForUpdate__JJ_3BIZZ(
 
 /*
  * Class:     org_rocksdb_Transaction
+ * Method:    getForUpdateKey
+ * Signature: (JJ[BIZZ)[B
+ */
+jbyteArray Java_org_rocksdb_Transaction_getForUpdateKey( //__JJ_3BIZZ
+    JNIEnv* env, jobject /*jobj*/, jlong jhandle, jlong jread_options_handle,
+    jbyteArray jkey, jint jkey_part_len, jboolean jexclusive,
+    jboolean jdo_validate) {
+  auto* txn = reinterpret_cast<ROCKSDB_NAMESPACE::Transaction*>(jhandle);
+
+  jbyte* key = env->GetByteArrayElements(jkey, nullptr);
+  if (key == nullptr) {
+    // exception thrown: OutOfMemoryError
+    return nullptr;
+  }
+  ROCKSDB_NAMESPACE::Slice key_slice(reinterpret_cast<char*>(key),
+                                     jkey_part_len);
+
+  auto* read_options =
+      reinterpret_cast<ROCKSDB_NAMESPACE::ReadOptions*>(jread_options_handle);
+  std::string value;
+  ROCKSDB_NAMESPACE::Status s = txn->GetForUpdateKey(*read_options, key_slice, &value, (bool)jexclusive, (bool)jdo_validate);
+
+  // std::cout << "rocksjni getForUpdateKey val size: " << value.length() << std::endl;
+  // if (value.empty()) {
+  //   value = "";
+  // }
+
+  // trigger java unref on key.
+  // by passing JNI_ABORT, it will simply release the reference without
+  // copying the result back to the java byte array.
+  env->ReleaseByteArrayElements(jkey, key, JNI_ABORT);
+
+  if (s.IsNotFound()) {
+    return nullptr;
+  }
+
+  if (s.ok()) {
+    jbyteArray jret_value = env->NewByteArray(static_cast<jsize>(value.size()));
+    if (jret_value == nullptr) {
+      // exception thrown: OutOfMemoryError
+      return nullptr;
+    }
+    env->SetByteArrayRegion(
+        jret_value, 0, static_cast<jsize>(value.size()),
+        const_cast<jbyte*>(reinterpret_cast<const jbyte*>(value.c_str())));
+    if (env->ExceptionCheck()) {
+      // exception thrown: ArrayIndexOutOfBoundsException
+      return nullptr;
+    }
+    return jret_value;
+  }
+
+  ROCKSDB_NAMESPACE::RocksDBExceptionJni::ThrowNew(env, s);
+  return nullptr;
+}
+
+/*
+ * Class:     org_rocksdb_Transaction
  * Method:    multiGetForUpdate
  * Signature: (JJ[[B[J)[[B
  */
@@ -644,6 +758,91 @@ void Java_org_rocksdb_Transaction_put__J_3BI_3BI(JNIEnv* env, jobject /*jobj*/,
           &ROCKSDB_NAMESPACE::Transaction::Put, txn, std::placeholders::_1,
           std::placeholders::_2);
   txn_write_kv_helper(env, fn_put, jkey, jkey_part_len, jval, jval_len);
+}
+
+/*
+ * Class:     org_rocksdb_Transaction
+ * Method:    putKey
+ * Signature: (J[BI[BI)V
+ */
+void Java_org_rocksdb_Transaction_putKey(JNIEnv* env, jobject /*jobj*/, //__J_3BI_3BI
+                                                 jlong jhandle, jbyteArray jkey,
+                                                 jint jkey_part_len,
+                                                 jbyteArray jval,
+                                                 jint jval_len) {
+  auto* txn = reinterpret_cast<ROCKSDB_NAMESPACE::Transaction*>(jhandle);
+
+  jbyte* key = env->GetByteArrayElements(jkey, nullptr);
+  if (key == nullptr) {
+    // exception thrown: OutOfMemoryError
+    return;
+  }
+  jbyte* value = env->GetByteArrayElements(jval, nullptr);
+  if (value == nullptr) {
+    // exception thrown: OutOfMemoryError
+    env->ReleaseByteArrayElements(jkey, key, JNI_ABORT);
+    return;
+  }
+  ROCKSDB_NAMESPACE::Slice key_slice(reinterpret_cast<char*>(key),
+                                     jkey_part_len);
+  ROCKSDB_NAMESPACE::Slice value_slice(reinterpret_cast<char*>(value),
+                                       jval_len);
+
+  ROCKSDB_NAMESPACE::Status s = txn->PutKey(key_slice, value_slice);
+
+  // trigger java unref on key.
+  // by passing JNI_ABORT, it will simply release the reference without
+  // copying the result back to the java byte array.
+  env->ReleaseByteArrayElements(jval, value, JNI_ABORT);
+  env->ReleaseByteArrayElements(jkey, key, JNI_ABORT);
+
+  if (s.ok()) {
+    return;
+  }
+  ROCKSDB_NAMESPACE::RocksDBExceptionJni::ThrowNew(env, s);
+}
+
+/*
+ * Class:     org_rocksdb_Transaction
+ * Method:    loadHotKey
+ * Signature: (J[BI[BIZ)V
+ */
+void Java_org_rocksdb_Transaction_loadHotKey(JNIEnv* env, jobject /*jobj*/, //__J_3BI_3BIZ
+                                                 jlong jhandle, jbyteArray jkey,
+                                                 jint jkey_part_len,
+                                                 jbyteArray jval,
+                                                 jint jval_len,
+                                                 jboolean jis_readwrite) {
+  auto* txn = reinterpret_cast<ROCKSDB_NAMESPACE::Transaction*>(jhandle);
+
+  jbyte* key = env->GetByteArrayElements(jkey, nullptr);
+  if (key == nullptr) {
+    // exception thrown: OutOfMemoryError
+    return;
+  }
+  jbyte* value = env->GetByteArrayElements(jval, nullptr);
+  if (value == nullptr) {
+    // exception thrown: OutOfMemoryError
+    env->ReleaseByteArrayElements(jkey, key, JNI_ABORT);
+    return;
+  }
+  ROCKSDB_NAMESPACE::Slice key_slice(reinterpret_cast<char*>(key),
+                                     jkey_part_len);
+  ROCKSDB_NAMESPACE::Slice value_slice(reinterpret_cast<char*>(value),
+                                       jval_len);
+
+  ROCKSDB_NAMESPACE::Status s = txn->LoadHotKey(key_slice, value_slice, (bool)jis_readwrite);
+
+  // trigger java unref on key.
+  // by passing JNI_ABORT, it will simply release the reference without
+  // copying the result back to the java byte array.
+  env->ReleaseByteArrayElements(jval, value, JNI_ABORT);
+  env->ReleaseByteArrayElements(jkey, key, JNI_ABORT);
+
+  if (s.ok()) {
+    return;
+  }
+  ROCKSDB_NAMESPACE::RocksDBExceptionJni::ThrowNew(env, s);
 }
 
 typedef std::function<ROCKSDB_NAMESPACE::Status(
@@ -893,6 +1092,37 @@ void Java_org_rocksdb_Transaction_delete__J_3BI(JNIEnv* env, jobject /*jobj*/,
       ROCKSDB_NAMESPACE::Transaction::*)(const ROCKSDB_NAMESPACE::Slice&)>(
       &ROCKSDB_NAMESPACE::Transaction::Delete, txn, std::placeholders::_1);
   txn_write_k_helper(env, fn_delete, jkey, jkey_part_len);
+}
+
+/*
+ * Class:     org_rocksdb_Transaction
+ * Method:    deleteKey
+ * Signature: (J[BI)V
+ */
+void Java_org_rocksdb_Transaction_deleteKey(JNIEnv* env, jobject /*jobj*/,
+                                            jlong jhandle, jbyteArray jkey,
+                                            jint jkey_part_len) {
+  auto* txn = reinterpret_cast<ROCKSDB_NAMESPACE::Transaction*>(jhandle);
+
+  jbyte* key = env->GetByteArrayElements(jkey, nullptr);
+  if (key == nullptr) {
+    // exception thrown: OutOfMemoryError
+    return;
+  }
+  ROCKSDB_NAMESPACE::Slice key_slice(reinterpret_cast<char*>(key),
+                                     jkey_part_len);
+
+  ROCKSDB_NAMESPACE::Status s = txn->DeleteKey(key_slice);
+
+  // trigger java unref on key.
+  // by passing JNI_ABORT, it will simply release the reference without
+  // copying the result back to the java byte array.
+  env->ReleaseByteArrayElements(jkey, key, JNI_ABORT);
+
+  if (s.ok()) {
+    return;
+  }
+  ROCKSDB_NAMESPACE::RocksDBExceptionJni::ThrowNew(env, s);
 }
 
 typedef std::function<ROCKSDB_NAMESPACE::Status(

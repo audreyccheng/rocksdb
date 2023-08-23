@@ -15,6 +15,7 @@
 #include "rocksdb/slice.h"
 #include "rocksdb/status.h"
 #include "rocksdb/types.h"
+#include "rocksdb/utilities/optimistic_transaction_db.h"
 #include "utilities/transactions/lock/lock_tracker.h"
 
 namespace ROCKSDB_NAMESPACE {
@@ -56,7 +57,7 @@ class TransactionUtil {
   // This function should only be called on the write thread or if the
   // mutex is held.
   // tracker must support point lock.
-  static Status CheckKeysForConflicts(DBImpl* db_impl,
+  static Status CheckKeysForConflicts(DBImpl* db_impl, OptimisticTransactionDB* txn_db_,
                                       const LockTracker& tracker,
                                       bool cache_only);
 
@@ -80,4 +81,3 @@ class TransactionUtil {
 };
 
 }  // namespace ROCKSDB_NAMESPACE
-

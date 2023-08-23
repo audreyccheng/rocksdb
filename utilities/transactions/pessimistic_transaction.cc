@@ -487,6 +487,47 @@ Status PessimisticTransaction::CommitBatch(WriteBatch* batch) {
 
 Status PessimisticTransaction::Schedule(int type) {
   assert(type >= 0);
+  if (type >= 0) {
+    return Status::OK();
+  }
+
+  return Status::OK();
+}
+
+Status PessimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
+  if (options.snapshot == nullptr || key == NULL || value == nullptr) {
+    return Status::OK();
+  }
+  return Status::OK();
+}
+
+Status PessimisticTransaction::GetForUpdateKey(const ReadOptions& options, const Slice& key,
+                              std::string* value, bool exclusive,
+                              const bool do_validate) {
+  if (options.snapshot == nullptr || key == NULL || value == nullptr || exclusive || do_validate) {
+    return Status::OK();
+  }
+  return Status::OK();
+}
+
+Status PessimisticTransaction::PutKey(const Slice& key, const Slice& value) {
+  if (key == NULL || value == nullptr) {
+    return Status::OK();
+  }
+  return Status::OK();
+}
+
+Status PessimisticTransaction::DeleteKey(const Slice& key) {
+  if (key == NULL) {
+    return Status::OK();
+  }
+  return Status::OK();
+}
+
+Status PessimisticTransaction::LoadHotKey(const Slice& key, const Slice& value, bool isReadWrite) {
+  if (key == NULL || value == nullptr || isReadWrite) {
+    return Status::OK();
+  }
   return Status::OK();
 }
 
