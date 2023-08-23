@@ -132,7 +132,7 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
   // // }
 
   // // still call Get to get the right lock
-  // auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
+  auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
   // if (get_success) {
   //   std::string temp_value;
   //   return txn_impl->Get(options, key, &temp_value);
