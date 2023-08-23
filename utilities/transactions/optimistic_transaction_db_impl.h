@@ -1008,7 +1008,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       // Slice temp2 = Slice(value.data());
       write_versions_[key].emplace_back(std::make_pair(id, val_str));
       std::cout << "value.size(): " << value.size()  << " value.data().size(): " << strlen(value.data())
-      << " val_str.size(): " << val_str.length() << " temp size: " << temp.size() << " temp2 size: " << temp2.size()
+      // << " val_str.size(): " << val_str.length() << " temp size: " << temp.size() << " temp2 size: " << temp2.size()
       << " write_versions_[key] size: " << write_versions_[key][write_versions_[key].size() - 1].second.length()
       << std::endl;
     }
