@@ -176,10 +176,10 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
 
   // still call Get to get the right lock
   auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
-  if (get_success && value->length() > 0) {
-    std::string temp_value;
-    return txn_impl->GetForUpdate(options, key, &temp_value, exclusive, do_validate);
-  }
+  // if (get_success && value->length() > 0) {
+  //   std::string temp_value;
+  //   return txn_impl->GetForUpdate(options, key, &temp_value, exclusive, do_validate);
+  // }
   return txn_impl->GetForUpdate(options, key, value, exclusive, do_validate);
 }
 
