@@ -495,7 +495,7 @@ Status PessimisticTransaction::Schedule(int type) {
 }
 
 Status PessimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
-  if (options.snapshot == nullptr || key == NULL || value == nullptr) {
+  if (options.snapshot == nullptr || key.size() == 0 || value == nullptr) {
     return Status::OK();
   }
   return Status::OK();
@@ -504,28 +504,28 @@ Status PessimisticTransaction::GetKey(const ReadOptions& options, const Slice& k
 Status PessimisticTransaction::GetForUpdateKey(const ReadOptions& options, const Slice& key,
                               std::string* value, bool exclusive,
                               const bool do_validate) {
-  if (options.snapshot == nullptr || key == NULL || value == nullptr || exclusive || do_validate) {
+  if (options.snapshot == nullptr || key.size() == 0 || value == nullptr || exclusive || do_validate) {
     return Status::OK();
   }
   return Status::OK();
 }
 
 Status PessimisticTransaction::PutKey(const Slice& key, const Slice& value) {
-  if (key == NULL || value == nullptr) {
+  if (key.size() == 0 || value == nullptr) {
     return Status::OK();
   }
   return Status::OK();
 }
 
 Status PessimisticTransaction::DeleteKey(const Slice& key) {
-  if (key == NULL) {
+  if (key.size() == 0) {
     return Status::OK();
   }
   return Status::OK();
 }
 
 Status PessimisticTransaction::LoadHotKey(const Slice& key, const Slice& value, bool isReadWrite) {
-  if (key == NULL || value == nullptr || isReadWrite) {
+  if (key.size() == 0 || value.size() == 0 || isReadWrite) {
     return Status::OK();
   }
   return Status::OK();
