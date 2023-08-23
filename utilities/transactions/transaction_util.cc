@@ -156,8 +156,11 @@ Status TransactionUtil::CheckKeysForConflicts(DBImpl* db_impl, OptimisticTransac
                                               bool cache_only) {
   Status result;
 
-  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
-                                            OptimisticTransactionDB>(txn_db_);
+  // auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+  //                                           OptimisticTransactionDB>(txn_db_);
+  if (txn_db_ == nullptr) {
+    std::cout << "no txn_db" << std::endl;
+  }
 
   std::unique_ptr<LockTracker::ColumnFamilyIterator> cf_it(
       tracker.GetColumnFamilyIterator());
@@ -193,11 +196,11 @@ Status TransactionUtil::CheckKeysForConflicts(DBImpl* db_impl, OptimisticTransac
 
       // skip validation on hot keys
       // std::cout << "Checking hot key: " << key << std::endl;
-      if (txn_db_impl->CheckHotKey(key)) { // TODO(accheng): make sure this hot key was actually accessed by this txn
-        std::cout << "Hot key skipping validation" << std::endl;
-        result = Status::OK();
-        // continue;
-      }
+      // if (txn_db_impl->CheckHotKey(key)) { // TODO(accheng): make sure this hot key was actually accessed by this txn
+      //   std::cout << "Hot key skipping validation" << std::endl;
+      //   result = Status::OK();
+      //   // continue;
+      // }
 
       if (!result.ok()) {
         break;
