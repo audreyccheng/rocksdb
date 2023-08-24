@@ -673,6 +673,27 @@ class Transaction {
     cv_.notify_all();
   }
 
+  virtual void ResetCV() {
+    ready_ = false;
+  }
+
+  virtual void SetHKCV() {
+    std::unique_lock<std::mutex> lock(hk_trx_mtx_);
+    while (!hk_ready_) {
+      hk_cv_.wait(lock);
+    }
+  }
+
+  virtual void ReleaseHKCV() {
+    std::unique_lock<std::mutex> lock(hk_trx_mtx_);
+    hk_ready_ = true;
+    hk_cv_.notify_all();
+  }
+
+  virtual void ResetHKCV() {
+    hk_ready_ = false;
+  }
+
   virtual TransactionID GetID() const { return 0; }
 
   virtual bool IsDeadlockDetect() const { return false; }
@@ -754,6 +775,11 @@ class Transaction {
   std::mutex trx_mtx_;
   std::condition_variable cv_;
   bool commit_wait_ = false;
+
+  // scheduling condition variable
+  bool hk_ready_ = false;
+  std::mutex hk_trx_mtx_;
+  std::condition_variable hk_cv_;
 
  private:
   friend class PessimisticTransactionDB;

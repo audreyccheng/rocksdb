@@ -96,6 +96,7 @@ void TransactionBaseImpl::Clear() {
   cluster_ = 0;
   index_ = 0;
   ready_ = false;
+  hk_ready_ = false;
   abort_ = false;
   commit_wait_ = false;
 

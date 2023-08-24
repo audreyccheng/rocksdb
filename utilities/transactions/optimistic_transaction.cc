@@ -96,7 +96,7 @@ Status OptimisticTransaction::Schedule(int type) {
 
 Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
   std::string key_str(key.data());
-  // std::cout << "Get key: " << key_str << std::endl;
+  std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -151,14 +151,18 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
                               std::string* value, bool exclusive,
                               const bool do_validate) {
   std::string key_str(key.data());
-  // std::cout << "GetForUpdate key: " << key_str << std::endl;
+  std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
-    txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
+    Status s = txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
     this->AddHK(key_str);
+    if (!s.ok()) {
+      std::cout << "ERR status" << std::endl;
+    }
   }
+  std::cout << "DONE queueing GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   // if (txn_db_impl->CheckHotKey(key_str)) {
     // std::cout << "GetForUpdate HOT key: " << key_str << std::endl;
     // if (this->GetCluster() != 0) {
@@ -196,26 +200,30 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
 
 Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
   std::string key_str(key.data());
-  // std::cout << "Put key: " << key_str << std::endl;
+  std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
+  bool put_success = false;
   // if (txn_db_impl->CheckHotKey(key_str)) {
     // std::cout << "Put HOT key: " << key_str << " val_size:" << value.size() << std::endl;
     if (txn_db_impl->AddWriteVersion(key_str, value, this->index_)) {
+      put_success = true;
       size_t len = value.size();
       char* val = new char[len];
       strcpy(val, value.data());
       std::string val_str(val, len);
       this->write_values_[key_str] = val_str;
       // std::cout << "SL Putkey: " << key_str << " val_size:" << this->write_values_[key_str].length() << std::endl;
-    } else {
-      // std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
-      return Status::Busy();
     }
 
     if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
       txn_db_impl->KeySubCount(key_str, 1 /* rw */, this->GetIndex());
       this->RemoveHK(key_str);
+    }
+
+    if (!put_success) {
+      // std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
+      return Status::Busy();
     }
 
     // if (this->GetCluster() != 0) {
