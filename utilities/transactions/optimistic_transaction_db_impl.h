@@ -1141,7 +1141,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     ongoing_txns_map_.erase(txn->GetIndex()); // ongoing_txns_map_.find(txn->GetIndex()), ongoing_txns_map_.end());
     // std::cout << "EEE---commit ongoing_txns_map_.size(): " << ongoing_txns_map_.size() << " txn: " << txn->GetIndex() << std::endl;
 
-    if (txn->GetAbort()) {
+    // if (txn->GetAbort()) {
       // TODO(accheng): don't need sys_mutex lock?
       // clear read and write versions
       auto txn_rv = txn->GetReadVersions();
@@ -1153,7 +1153,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       for (auto it = txn_wv.begin(); it != txn_wv.end(); it++) {
         ClearWriteVersion(it->first, it->second, txn->GetIndex());
       }
-    }
+    // }
     // txn->ClearReadVersions();
     // txn->ClearWriteValues();
     sys_mutex_.unlock();
