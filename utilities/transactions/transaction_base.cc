@@ -97,6 +97,7 @@ void TransactionBaseImpl::Clear() {
   index_ = 0;
   ready_ = false;
   abort_ = false;
+  commit_wait_ = false;
 
   read_versions_.clear();
   read_values_.clear();

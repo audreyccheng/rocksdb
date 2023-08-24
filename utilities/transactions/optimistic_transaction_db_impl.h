@@ -1082,12 +1082,22 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     for (auto it = txn_rv.begin(); it != txn_rv.end(); it++) {
       sys_mutex_.lock();
       if (auto s = ongoing_map_.find(it->second); s != ongoing_map_.end()) {
-        ongoing_map_[it->second].emplace_back(txn->GetIndex());
-        std::cout << "Queuing id: " << txn->GetIndex() << " on tid: " << it->second
-      << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
-      << std::endl;
-        sys_mutex_.unlock();
-        queue_trx(txn);
+        if (ongoing_txns_map_[it->second]->GetCommitWait()) {
+          ongoing_txns_map_[it->second]->SetAbort(true);
+          ongoing_txns_map_[it->second]->ReleaseCV();
+          std::cout << "SECONDARY ABORT id: " << txn->GetIndex() << " on tid: " << it->second
+          << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
+          << std::endl;
+          sys_mutex_.unlock();
+        } else {
+          ongoing_map_[it->second].emplace_back(txn->GetIndex());
+          std::cout << "Queuing id: " << txn->GetIndex() << " on tid: " << it->second
+          << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
+          << std::endl;
+          txn->SetCommitWait(true);
+          sys_mutex_.unlock();
+          queue_trx(txn);
+        }
       } else {
         sys_mutex_.unlock();
       }
@@ -1141,7 +1151,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     ongoing_txns_map_.erase(txn->GetIndex()); // ongoing_txns_map_.find(txn->GetIndex()), ongoing_txns_map_.end());
     // std::cout << "EEE---commit ongoing_txns_map_.size(): " << ongoing_txns_map_.size() << " txn: " << txn->GetIndex() << std::endl;
 
-    // if (txn->GetAbort()) {
+    if (txn->GetAbort()) {
       // TODO(accheng): don't need sys_mutex lock?
       // clear read and write versions
       auto txn_rv = txn->GetReadVersions();
@@ -1153,7 +1163,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       for (auto it = txn_wv.begin(); it != txn_wv.end(); it++) {
         ClearWriteVersion(it->first, it->second, txn->GetIndex());
       }
-    // }
+    }
     // txn->ClearReadVersions();
     // txn->ClearWriteValues();
     sys_mutex_.unlock();

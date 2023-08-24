@@ -648,6 +648,10 @@ class Transaction {
 
   virtual void ClearWriteValues() { write_values_.clear(); }
 
+  virtual void SetCommitWait(bool commit_wait) { commit_wait_ = commit_wait; }
+
+  virtual bool GetCommitWait() const { return commit_wait_; }
+
   virtual void SetCV() {
     std::unique_lock<std::mutex> lock(trx_mtx_);
     while (!ready_) {
@@ -740,6 +744,7 @@ class Transaction {
   bool ready_ = false;
   std::mutex trx_mtx_;
   std::condition_variable cv_;
+  bool commit_wait_ = false;
 
  private:
   friend class PessimisticTransactionDB;
