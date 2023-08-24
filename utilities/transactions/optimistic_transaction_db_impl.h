@@ -1075,7 +1075,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   }
 
   void CheckCommitVersions(Transaction* txn) {
-    std::cout << "CheckCommitVersions tid: " << txn->GetIndex() << " size: " << txn->GetReadVersions().size() << std::endl;
+    // std::cout << "CheckCommitVersions tid: " << txn->GetIndex() << " size: " << txn->GetReadVersions().size() << std::endl;
     // check if dep on any ongoing txns --> is ongoing txn in ongoing_txns set?
     // wait on txns if so
     auto txn_rv = txn->GetReadVersions();
@@ -1085,15 +1085,15 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
         if (ongoing_txns_map_[it->second]->GetCommitWait()) {
           ongoing_txns_map_[it->second]->SetAbort(true);
           ongoing_txns_map_[it->second]->ReleaseCV();
-          std::cout << "SECONDARY ABORT id: " << txn->GetIndex() << " on tid: " << it->second
-          << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
-          << std::endl;
+          // std::cout << "SECONDARY ABORT id: " << txn->GetIndex() << " on tid: " << it->second
+          // << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
+          // << std::endl;
           sys_mutex_.unlock();
         } else {
           ongoing_map_[it->second].emplace_back(txn->GetIndex());
-          std::cout << "Queuing id: " << txn->GetIndex() << " on tid: " << it->second
-          << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
-          << std::endl;
+          // std::cout << "Queuing id: " << txn->GetIndex() << " on tid: " << it->second
+          // << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
+          // << std::endl;
           txn->SetCommitWait(true);
           sys_mutex_.unlock();
           queue_trx(txn);
@@ -1122,8 +1122,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   }
 
   void CleanVersions(Transaction* txn, bool abort) {
-    std::cout << "CleanVersions tid: " << txn->GetIndex() << " abort:" << abort << " size: " << txn->GetReadVersions().size()
-    << " size2: " << txn->GetWriteValues().size() << std::endl;
+    // std::cout << "CleanVersions tid: " << txn->GetIndex() << " abort:" << abort << " size: " << txn->GetReadVersions().size()
+    // << " size2: " << txn->GetWriteValues().size() << std::endl;
     txn->SetAbort(abort || txn->GetAbort());
 
 
@@ -1132,7 +1132,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
     sys_mutex_.lock();
     if (ongoing_map_.find(txn->GetIndex()) == ongoing_map_.end()) {
-      std::cout << "NO ONGOING ongoing_map_ tid: " << txn->GetIndex() << " size:" << ongoing_map_.size() << std::endl;
+      // std::cout << "NO ONGOING ongoing_map_ tid: " << txn->GetIndex() << " size:" << ongoing_map_.size() << std::endl;
       sys_mutex_.unlock();
       return;
     }
