@@ -652,6 +652,14 @@ class Transaction {
 
   virtual bool GetCommitWait() const { return commit_wait_; }
 
+  virtual const std::unordered_set<std::string> & GetHotKeys() const { return hot_keys_; }
+
+  virtual void AddHK(const std::string &key) { hot_keys_.insert(key); }
+
+  virtual void RemoveHK(const std::string &key) { hot_keys_.erase(key); }
+
+  virtual void ClearHotKeys() { hot_keys_.clear(); }
+
   virtual void SetCV() {
     std::unique_lock<std::mutex> lock(trx_mtx_);
     while (!ready_) {
@@ -739,6 +747,7 @@ class Transaction {
   std::map<std::string, uint32_t> read_versions_;
   std::map<std::string, std::string> read_values_;
   std::map<std::string, std::string> write_values_;
+  std::unordered_set<std::string> hot_keys_; // only rw hot keys
 
   // scheduling condition variable
   bool ready_ = false;

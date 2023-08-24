@@ -107,6 +107,10 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
     //   txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 0 /* rw */, this);
     // }
 
+    if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
+      txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 0 /* rw */, this);
+    }
+
     auto rp = txn_db_impl->AddReadVersion(key_str, this->index_); // if id == 0, fetch from DB
     if (rp.first != 0) {
       get_success = true;
@@ -130,6 +134,9 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
     //   txn_db_impl->KeySubCount(key_str, 0 /* rw */, this->GetIndex());
     // }
   // }
+    if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
+      txn_db_impl->KeySubCount(key_str, 0 /* rw */, this->GetIndex());
+    }
 
   // // still call Get to get the right lock
   auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
@@ -148,6 +155,10 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
+  if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
+    txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
+    this->AddHK(key_str);
+  }
   // if (txn_db_impl->CheckHotKey(key_str)) {
     // std::cout << "GetForUpdate HOT key: " << key_str << std::endl;
     // if (this->GetCluster() != 0) {
@@ -200,6 +211,11 @@ Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
     } else {
       // std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
       return Status::Busy();
+    }
+
+    if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
+      txn_db_impl->KeySubCount(key_str, 1 /* rw */, this->GetIndex());
+      this->RemoveHK(key_str);
     }
 
     // if (this->GetCluster() != 0) {
