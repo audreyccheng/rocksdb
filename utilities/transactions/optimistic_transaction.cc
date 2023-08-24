@@ -151,18 +151,15 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
                               std::string* value, bool exclusive,
                               const bool do_validate) {
   std::string key_str(key.data());
-  std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
-    Status s = txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
+    txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
     this->AddHK(key_str);
-    if (!s.ok()) {
-      std::cout << "ERR status" << std::endl;
-    }
   }
-  std::cout << "DONE queueing GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "DONE queueing GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   // if (txn_db_impl->CheckHotKey(key_str)) {
     // std::cout << "GetForUpdate HOT key: " << key_str << std::endl;
     // if (this->GetCluster() != 0) {
@@ -200,7 +197,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
 
 Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
   std::string key_str(key.data());
-  std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   bool put_success = false;
