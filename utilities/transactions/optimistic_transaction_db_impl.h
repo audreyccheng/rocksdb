@@ -931,7 +931,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   void AddKey(const std::string& key) {
 
-    sys_mutex_.lock();
+    // sys_mutex_.lock();
     if (all_keys_.find(key) == all_keys_.end()) {
       uint32_t id = (uint32_t) all_keys_.size();
       all_keys_.insert(key);
@@ -954,7 +954,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       // hk_mutexes_.swap(temp3);
     }
     // std::cout << "AddKey kid: " << key_to_int_map_[key] << " versions_mutexes_.size(): " << versions_mutexes_.size() << std::endl;
-    sys_mutex_.unlock();
+    // sys_mutex_.unlock();
   }
 
   std::pair<uint32_t, std::string> AddReadVersion(const std::string& key, const uint32_t id) {
@@ -1075,7 +1075,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   }
 
   void CheckCommitVersions(Transaction* txn) {
-    // std::cout << "CheckCommitVersions tid: " << txn->GetIndex() << " size: " << txn->GetReadVersions().size() << std::endl;
+    std::cout << "CheckCommitVersions tid: " << txn->GetIndex() << " size: " << txn->GetReadVersions().size() << std::endl;
     // check if dep on any ongoing txns --> is ongoing txn in ongoing_txns set?
     // wait on txns if so
     auto txn_rv = txn->GetReadVersions();
@@ -1112,8 +1112,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   }
 
   void CleanVersions(Transaction* txn, bool abort) {
-    // std::cout << "CleanVersions tid: " << txn->GetIndex() << " abort:" << abort << " size: " << txn->GetReadVersions().size()
-    // << " size2: " << txn->GetWriteValues().size() << std::endl;
+    std::cout << "CleanVersions tid: " << txn->GetIndex() << " abort:" << abort << " size: " << txn->GetReadVersions().size()
+    << " size2: " << txn->GetWriteValues().size() << std::endl;
     txn->SetAbort(abort || txn->GetAbort());
 
 
