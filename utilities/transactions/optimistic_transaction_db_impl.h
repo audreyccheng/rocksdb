@@ -1371,6 +1371,10 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   }
 
   Status ScheduleKey(uint16_t cluster, const std::string& key, uint16_t rw, Transaction* txn) {
+    if (cluster == 0) {
+      return Status::OK();
+    }
+
     uint32_t idx = hk_to_int_map_[key];
     hk_mutexes_[idx].lock();
     // std::cout << "ScheduleKey: " << key << " cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
