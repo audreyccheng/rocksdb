@@ -931,7 +931,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   void AddKey(const std::string& key) {
 
-    // sys_mutex_.lock();
+    sys_mutex_.lock();
     if (all_keys_.find(key) == all_keys_.end()) {
       uint32_t id = (uint32_t) all_keys_.size();
       all_keys_.insert(key);
@@ -954,7 +954,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       // hk_mutexes_.swap(temp3);
     }
     // std::cout << "AddKey kid: " << key_to_int_map_[key] << " versions_mutexes_.size(): " << versions_mutexes_.size() << std::endl;
-    // sys_mutex_.unlock();
+    sys_mutex_.unlock();
   }
 
   std::pair<uint32_t, std::string> AddReadVersion(const std::string& key, const uint32_t id) {
@@ -1083,9 +1083,9 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       sys_mutex_.lock();
       if (auto s = ongoing_map_.find(it->second); s != ongoing_map_.end()) {
         ongoing_map_[it->second].emplace_back(txn->GetIndex());
-      //   std::cout << "Queuing id: " << txn->GetIndex() << " on tid: " << it->second
-      // << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
-      // << std::endl;
+        std::cout << "Queuing id: " << txn->GetIndex() << " on tid: " << it->second
+      << " found? " << (ongoing_map_.find(it->second) != ongoing_map_.end())
+      << std::endl;
         sys_mutex_.unlock();
         queue_trx(txn);
       } else {
