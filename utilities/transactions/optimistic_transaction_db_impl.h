@@ -1048,8 +1048,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       // std::cout << "cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
 
       for (auto p : clust_hk_map_[cluster]) {
-        uint32_t idx = hk_to_int_map_[p.first];
-        hk_mutexes_[idx].lock();
+        hk_mutexes_[p.first].lock();
         if (p.second == 0) {
           // std::cout << "INSERtiNG read cluster: " << cluster << " key: " << p.first << " id: " << txn->GetIndex() << std::endl;
           ex_hk_reads_[p.first].insert(txn->GetIndex());
@@ -1057,7 +1056,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
           // std::cout << "INSERtiNG RW cluster: " << cluster << " key: " << p.first << " id: " << txn->GetIndex() << std::endl;
           ex_hk_rws_[p.first].insert(txn->GetIndex());
         }
-        hk_mutexes_[idx].unlock();
+        hk_mutexes_[p.first].unlock();
       }
     }
 
