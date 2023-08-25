@@ -831,7 +831,10 @@ void Java_org_rocksdb_Transaction_loadHotKey(JNIEnv* env, jobject /*jobj*/, //__
   ROCKSDB_NAMESPACE::Slice value_slice(reinterpret_cast<char*>(value),
                                        jval_len);
 
+  // const char* db_path = env->GetStringUTFChars(jdb_path, nullptr);
+
   std::cout << "rocksjni loadHotKey key: " << key_slice.data() << " size: " << key_slice.size()
+  << " jsize key: " << (int) jkey_part_len << " jsize val: " << (int) jval_len
   << " value: " << value_slice.data() << " size: " << value_slice.size() << std::endl;
 
   ROCKSDB_NAMESPACE::Status s = txn->LoadHotKey(key_slice, value_slice, (bool)jis_readwrite);
