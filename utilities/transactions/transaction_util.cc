@@ -156,8 +156,8 @@ Status TransactionUtil::CheckKeysForConflicts(DBImpl* db_impl, OptimisticTransac
                                               bool cache_only) {
   Status result;
 
-  // auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
-  //                                           OptimisticTransactionDB>(txn_db_);
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
   if (txn_db_ == nullptr) {
     std::cout << "no txn_db" << std::endl;
   }
