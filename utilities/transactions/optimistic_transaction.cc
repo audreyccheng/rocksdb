@@ -219,7 +219,7 @@ Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
     }
 
     if (!put_success) {
-      std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
+      // std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
       return Status::Busy();
     }
 
