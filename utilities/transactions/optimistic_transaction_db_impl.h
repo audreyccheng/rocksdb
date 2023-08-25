@@ -196,10 +196,10 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   Status queue_hk_trx(Transaction* txn) {
     auto txn_impl = reinterpret_cast<Transaction*>(txn);
-    std::cout << "queue_hk_trx tid: " << txn->GetIndex();
+    // std::cout << "queue_hk_trx tid: " << txn->GetIndex();
     // txn_impl->ResetHKCV();
     txn_impl->SetHKCV();
-    std::cout << "Released queue_hk_trx tid: " << txn->GetIndex();
+    // std::cout << "Released queue_hk_trx tid: " << txn->GetIndex();
     // txn_impl->cv_.wait(lock, [&txn_impl]{ return txn_impl->ready_; });
     return Status::OK();
   }
