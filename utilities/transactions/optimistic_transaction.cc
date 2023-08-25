@@ -96,7 +96,7 @@ Status OptimisticTransaction::Schedule(int type) {
 
 Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
   std::string key_str(key.data());
-  std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
