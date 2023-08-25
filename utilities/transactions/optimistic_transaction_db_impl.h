@@ -1194,12 +1194,14 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
     if (ex_hk_reads_[key].size() > 0 && ex_hk_rws_[key].size() > 0) {
       if (*(ex_hk_reads_[key].begin()) < *(ex_hk_rws_[key].begin())) {
+        std::cout << "release_next_key---rw: " << key << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
         // free all the reads we can
         auto eit = ex_hk_reads_[key].begin();
         auto hit = hk_read_queue_[key].begin();
         uint32_t limit = *(ex_hk_rws_[key].begin());
         std::set<uint32_t> erase_keys = std::set<uint32_t>();
         while (eit != ex_hk_reads_[key].end() && hit != hk_read_queue_[key].end() && *eit == *hit && *eit < limit) {
+           std::cout << "trying to release read txn: " << *hit << " found? " << (ongoing_txns_map_.find(*hit) != ongoing_txns_map_.end()) << std::endl;
           ongoing_txns_map_[*hit]->ReleaseHKCV();
           hk_sched_counts_[key][0]++;
           erase_keys.insert(*hit);
@@ -1210,22 +1212,26 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
           hk_read_queue_[key].erase(id);
         }
       } else {
+        std::cout << "release_next_key---rw: " << key << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
         // free at most one rw
         auto eit = ex_hk_rws_[key].begin();
         auto hit = hk_rw_queue_[key].begin();
         uint32_t limit = *(ex_hk_reads_[key].begin());
         if (eit != ex_hk_rws_[key].end() && hit != hk_rw_queue_[key].end() && *eit == *hit && *eit < limit) {
+          std::cout << "trying to release rw txn: " << *hit << " found? " << (ongoing_txns_map_.find(*hit) != ongoing_txns_map_.end()) << std::endl;
           ongoing_txns_map_[*hit]->ReleaseHKCV();
           hk_sched_counts_[key][1]++;
           hk_rw_queue_[key].erase(*hit);
         }
       }
     } else if (ex_hk_reads_[key].size() > 0) {
+      std::cout << "release_next_key---read: " << key << " ex_hk_reads_[key]: " << ex_hk_reads_[key].size() << " hk_read_queue_[key]: " << hk_read_queue_[key].size() << std::endl;
       // free all reads in hk_read_queue_ since no rw
       auto eit = ex_hk_reads_[key].begin();
       auto hit = hk_read_queue_[key].begin();
       std::set<uint32_t> erase_keys = std::set<uint32_t>();
       while (eit != ex_hk_reads_[key].end() && hit != hk_read_queue_[key].end() && *eit == *hit) {
+        std::cout << "trying to release read txn: " << *hit << " found? " << (ongoing_txns_map_.find(*hit) != ongoing_txns_map_.end()) << std::endl;
         ongoing_txns_map_[*hit]->ReleaseHKCV();
         hk_sched_counts_[key][0]++;
         erase_keys.insert(*hit);
@@ -1257,12 +1263,14 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
     if (ex_hk_reads_[key].size() > 0 && ex_hk_rws_[key].size() > 0) {
       if (*(ex_hk_reads_[key].begin()) < *(ex_hk_rws_[key].begin())) {
+        std::cout << "partial release_next_key---rw: " << key << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
         // free all the reads we can
         auto eit = ex_hk_reads_[key].begin();
         auto hit = hk_read_queue_[key].begin();
         uint32_t limit = *(ex_hk_rws_[key].begin());
         std::set<uint32_t> erase_keys = std::set<uint32_t>();
         while (eit != ex_hk_reads_[key].end() && hit != hk_read_queue_[key].end() && *eit == *hit && *eit < limit) {
+           std::cout << "partial trying to release read txn: " << *hit << " found? " << (ongoing_txns_map_.find(*hit) != ongoing_txns_map_.end()) << std::endl;
           ongoing_txns_map_[*hit]->ReleaseHKCV();
           hk_sched_counts_[key][0]++;
           erase_keys.insert(*hit);
@@ -1274,11 +1282,13 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
         }
       }
     } else if (ex_hk_reads_[key].size() > 0) {
+      std::cout << "partial release_next_key---rw: " << key << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
       // free all reads in hk_read_queue_ since no rw
       auto eit = ex_hk_reads_[key].begin();
       auto hit = hk_read_queue_[key].begin();
       std::set<uint32_t> erase_keys = std::set<uint32_t>();
       while (eit != ex_hk_reads_[key].end() && hit != hk_read_queue_[key].end() && *eit == *hit) {
+         std::cout << "trying to release read txn: " << *hit << " found? " << (ongoing_txns_map_.find(*hit) != ongoing_txns_map_.end()) << std::endl;
         ongoing_txns_map_[*hit]->ReleaseHKCV();
         hk_sched_counts_[key][0]++;
         erase_keys.insert(*hit);
