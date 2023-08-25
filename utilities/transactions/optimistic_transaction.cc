@@ -102,7 +102,7 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
   // std::cout << "Get key: " << key_byte << std::endl;
   // int key_val = stoi(key_byte.substr(0,15));
   // std::string key_str = std::to_string(key_val);
-  std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -163,7 +163,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
   // std::cout << "GetForUpdate key: " << key_byte << std::endl;
   // int key_val = stoi(key_byte.substr(0,15));
   // std::string key_str = std::to_string(key_val);
-  std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -215,7 +215,7 @@ Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
   // std::cout << "Put key: " << key_byte << std::endl;
   // int key_val = stoi(key_byte.substr(0,15));
   // std::string key_str = std::to_string(key_val);
-  std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   bool put_success = false;
