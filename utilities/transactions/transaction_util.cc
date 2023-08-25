@@ -188,19 +188,21 @@ Status TransactionUtil::CheckKeysForConflicts(DBImpl* db_impl, OptimisticTransac
       PointLockStatus status = tracker.GetPointLockStatus(cf, key);
       const SequenceNumber key_seq = status.seq;
 
+      // skip validation on hot keys
+      // std::cout << "Checking hot key: " << key << std::endl;
+      if (txn_db_impl->CheckHotKey(key)) { // TODO(accheng): make sure this hot key was actually accessed by this txn
+        // std::cout << "Hot key skipping validation" << std::endl;
+        result = Status::OK();
+        // continue;
+      } else {
+
       // TODO: support timestamp-based conflict checking.
       // CheckKeysForConflicts() is currently used only by optimistic
       // transactions.
       result = CheckKey(db_impl, sv, earliest_seq, key_seq, key,
                         /*read_ts=*/nullptr, cache_only);
 
-      // skip validation on hot keys
-      // std::cout << "Checking hot key: " << key << std::endl;
-      // if (txn_db_impl->CheckHotKey(key)) { // TODO(accheng): make sure this hot key was actually accessed by this txn
-      //   std::cout << "Hot key skipping validation" << std::endl;
-      //   result = Status::OK();
-      //   // continue;
-      // }
+      }
 
       if (!result.ok()) {
         break;
