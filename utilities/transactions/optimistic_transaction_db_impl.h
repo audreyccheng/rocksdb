@@ -1095,7 +1095,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     for (auto it = txn_rv.begin(); it != txn_rv.end(); it++) {
       sys_mutex_.lock();
       if (auto s = ongoing_map_.find(it->second); s != ongoing_map_.end()) {
-        if (ongoing_txns_map_[it->second]->GetCommitWait()) {
+        if (ongoing_txns_map_[it->second]->GetCommitWait() && txn->GetCluster() == 0) {
           ongoing_txns_map_[it->second]->SetAbort(true);
           ongoing_txns_map_[it->second]->ReleaseCV();
           std::cout << "SECONDARY ABORT id: " << txn->GetIndex() << " on tid: " << it->second
