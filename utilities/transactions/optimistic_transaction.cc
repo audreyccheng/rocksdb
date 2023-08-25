@@ -96,7 +96,7 @@ Status OptimisticTransaction::Schedule(int type) {
 
 Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
   sstd::string key_byte(key.data());
-  int key_val = stoi(key_byte.sub_str(0,19));
+  int key_val = stoi(key_byte.substr(0,19));
   std::string key_str = std::to_string(key_val);
   std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
@@ -153,7 +153,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
                               std::string* value, bool exclusive,
                               const bool do_validate) {
   std::string key_byte(key.data());
-  int key_val = stoi(key_byte.sub_str(0,19));
+  int key_val = stoi(key_byte.substr(0,19));
   std::string key_str = std::to_string(key_val);
   std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
@@ -201,7 +201,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
 
 Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
   std::string key_byte(key.data());
-  int key_val = stoi(key_byte.sub_str(0,19));
+  int key_val = stoi(key_byte.substr(0,19));
   std::string key_str = std::to_string(key_val);
   std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
