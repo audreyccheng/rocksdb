@@ -102,7 +102,7 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
   // std::cout << "Get key: " << key_byte << std::endl;
   // int key_val = stoi(key_byte.substr(0,15));
   // std::string key_str = std::to_string(key_val);
-  std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -140,7 +140,7 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
     //   txn_db_impl->KeySubCount(key_str, 0 /* rw */, this->GetIndex());
     // }
   // }
-  std::cout << "Get DONE key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "Get DONE key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
     if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
       txn_db_impl->KeySubCount(key_str, 0 /* rw */, this->GetIndex());
     }
@@ -164,7 +164,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
   // std::cout << "GetForUpdate key: " << key_byte << std::endl;
   // int key_val = stoi(key_byte.substr(0,15));
   // std::string key_str = std::to_string(key_val);
-  std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -198,6 +198,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
     //   // return Status::Busy();
     // }
   // }
+  // std::cout << "GetForUpdate DONE key: " << key_str << " tid: " << this->GetIndex() << std::endl;
 
   // still call Get to get the right lock
   auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
@@ -216,7 +217,7 @@ Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
   // std::cout << "Put key: " << key_byte << std::endl;
   // int key_val = stoi(key_byte.substr(0,15));
   // std::string key_str = std::to_string(key_val);
-  std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
+  // std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   bool put_success = false;
@@ -246,6 +247,8 @@ Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
     //   txn_db_impl->KeySubCount(key_str, 1 /* rw */, this->GetIndex());
     // }
   // }
+
+  // std::cout << "Put DONE key: " << key_str << " tid: " << this->GetIndex() << std::endl;
 
   auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
   return txn_impl->Put(key, value);
