@@ -269,7 +269,7 @@ Status OptimisticTransaction::LoadHotKey(const Slice& key, const Slice& value, b
   std::string key_byte(key.data());
   std::cout << "LoadHotKey key: " << key_byte << " len: " << key_byte.length() << std::endl;
   std::string key_str = key_byte.substr(0,18);
-  std::cout << "LoadHotKey key_substr: " << key_substr << " len: " << key_str.length() << std::endl;
+  std::cout << "LoadHotKey key_substr: " << key_str << " len: " << key_str.length() << std::endl;
   // int key_val = stoi(key_substr);
   // std::string key_str = std::to_string(key_val);
   std::string val_str(value.data());
