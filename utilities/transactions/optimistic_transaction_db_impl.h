@@ -1377,18 +1377,18 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
     uint32_t idx = hk_to_int_map_[key];
     hk_mutexes_[idx].lock();
-    // std::cout << "ScheduleKey: " << key << " cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
+    std::cout << "ScheduleKey: " << key << " cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
 
     if (check_ongoing_hkey(idx, rw, txn->GetIndex())) {
       hk_sched_counts_[idx][rw]++;
 
-      // std::cout << "1-run hkey: " << key << " cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
+      std::cout << "1-run hkey: " << key << " cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
 
       hk_mutexes_[idx].unlock();
       return Status::OK();
     } else {
 
-      // std::cout << "2-queueing hkey: " << key << "cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
+      std::cout << "2-queueing hkey: " << key << "cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
       queue_hkey(idx, rw, txn->GetIndex());
 
       hk_mutexes_[idx].unlock();
