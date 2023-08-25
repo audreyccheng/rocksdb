@@ -267,9 +267,11 @@ Status OptimisticTransaction::LoadHotKey(const Slice& key, const Slice& value, b
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   std::string key_byte(key.data());
-  std::cout << "GetForUpdate key: " << key_byte << " len: " << key_byte.length() << std::endl;
-  int key_val = stoi(key_byte.substr(0,18));
-  std::string key_str = std::to_string(key_val);
+  std::cout << "LoadHotKey key: " << key_byte << " len: " << key_byte.length() << std::endl;
+  std::string key_str = key_byte.substr(0,18)
+  std::cout << "LoadHotKey key_substr: " << key_substr << " len: " << key_str.length() << std::endl;
+  // int key_val = stoi(key_substr);
+  // std::string key_str = std::to_string(key_val);
   std::string val_str(value.data());
   std::cout << "LoadHotKey value: " << val_str << " key: " << key_str << " rw: " << isReadWrite << std::endl;
   uint16_t val = (uint16_t) stoi(val_str);
