@@ -1136,7 +1136,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   void CleanVersions(Transaction* txn, bool abort) {
     // std::cout << "CleanVersions tid: " << txn->GetIndex() << " abort:" << abort << " size: " << txn->GetReadVersions().size()
-    << " size2: " << txn->GetWriteValues().size() << std::endl;
+    // << " size2: " << txn->GetWriteValues().size() << std::endl;
     txn->SetAbort(abort || txn->GetAbort());
 
     // make sure to free any scheduled ops
