@@ -95,7 +95,7 @@ Status OptimisticTransaction::Schedule(int type) {
 }
 
 Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
-  sstd::string key_byte(key.data());
+  std::string key_byte(key.data());
   int key_val = stoi(key_byte.substr(0,19));
   std::string key_str = std::to_string(key_val);
   std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
