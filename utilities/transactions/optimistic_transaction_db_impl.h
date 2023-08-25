@@ -1349,10 +1349,10 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   }
 
   bool check_ongoing_hkey(uint32_t key, uint16_t rw, uint32_t id) {
-    // std::cout << "check_ongoing_hkey: " << key << " rw: " << rw << " txn: " << id
-    // << " hk_sched_counts_[key][0]: " << hk_sched_counts_[key][0] << " hk_sched_counts_[key][1]: " << hk_sched_counts_[key][1]
-    // << " ex_hk_reads_[key]: " << ex_hk_reads_[key].size() << " hk_read_queue_[key]: " << hk_read_queue_[key].size()
-    // << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
+    std::cout << "check_ongoing_hkey: " << key << " rw: " << rw << " txn: " << id
+    << " hk_sched_counts_[key][0]: " << hk_sched_counts_[key][0] << " hk_sched_counts_[key][1]: " << hk_sched_counts_[key][1]
+    << " ex_hk_reads_[key]: " << ex_hk_reads_[key].size() << " hk_read_queue_[key]: " << hk_read_queue_[key].size()
+    << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
 
     // if this op is a read, check if any ongoing rw
     if (rw == 0) {
