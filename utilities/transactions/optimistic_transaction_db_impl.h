@@ -1043,14 +1043,14 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
     // // TODO(accheng): get hot keys from cluster
     if (cluster != 0) {
-      std::cout << "cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
+      // std::cout << "cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
 
       for (auto p : clust_hk_map_[cluster]) {
         if (p.second == 0) {
-          std::cout << "INSERtiNG read cluster: " << cluster << " key: " << p.first << " id: " << txn->GetIndex() << std::endl;
+          // std::cout << "INSERtiNG read cluster: " << cluster << " key: " << p.first << " id: " << txn->GetIndex() << std::endl;
           ex_hk_reads_[p.first].insert(txn->GetIndex());
         } else {
-          std::cout << "INSERtiNG RW cluster: " << cluster << " key: " << p.first << " id: " << txn->GetIndex() << std::endl;
+          // std::cout << "INSERtiNG RW cluster: " << cluster << " key: " << p.first << " id: " << txn->GetIndex() << std::endl;
           ex_hk_rws_[p.first].insert(txn->GetIndex());
         }
       }
