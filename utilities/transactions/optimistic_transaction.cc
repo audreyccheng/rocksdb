@@ -96,7 +96,7 @@ Status OptimisticTransaction::Schedule(int type) {
 
 Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
   std::string key_str(key.data());
-  // std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
+  std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -151,7 +151,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
                               std::string* value, bool exclusive,
                               const bool do_validate) {
   std::string key_str(key.data());
-  // std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
+  std::cout << "GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -197,7 +197,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
 
 Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
   std::string key_str(key.data());
-  // std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
+  std::cout << "Put key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   bool put_success = false;
@@ -441,9 +441,9 @@ Status OptimisticTransaction::CommitWithParallelValidate() {
     }
   });
 
-  // Status s = Status::OK(); //
-  Status s = TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
-                                                    true /* cache_only */);
+  Status s = Status::OK(); //
+  // Status s = TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
+  //                                                   true /* cache_only */);
   if (!s.ok()) {
     FreeLock();
     return s;
@@ -523,9 +523,9 @@ Status OptimisticTransaction::CheckTransactionForConflicts(DB* db) {
   // we will do a cache-only conflict check.  This can result in TryAgain
   // getting returned if there is not sufficient memtable history to check
   // for conflicts.
-  // return Status::OK();
-  return TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
-                                                true /* cache_only */);
+  return Status::OK();
+  // return TransactionUtil::CheckKeysForConflicts(db_impl, txn_db_, *tracked_locks_,
+  //                                               true /* cache_only */);
 }
 
 Status OptimisticTransaction::SetName(const TransactionName& /* unused */) {
