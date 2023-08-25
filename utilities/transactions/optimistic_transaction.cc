@@ -95,7 +95,9 @@ Status OptimisticTransaction::Schedule(int type) {
 }
 
 Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& key, std::string* value) {
-  std::string key_str(key.data());
+  // std::string key_str(key.data());
+  std::string key_byte(key.data());
+  std::string key_str = key_byte.substr(0,17);
   // std::string key_byte(key.data());
   // std::cout << "Get key: " << key_byte << std::endl;
   // int key_val = stoi(key_byte.substr(0,15));
@@ -154,7 +156,9 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
 Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const Slice& key,
                               std::string* value, bool exclusive,
                               const bool do_validate) {
-  std::string key_str(key.data());
+  // std::string key_str(key.data());
+  std::string key_byte(key.data());
+  std::string key_str = key_byte.substr(0,17);
   // std::string key_byte(key.data());
   // std::cout << "GetForUpdate key: " << key_byte << std::endl;
   // int key_val = stoi(key_byte.substr(0,15));
@@ -204,7 +208,9 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
 }
 
 Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
-  std::string key_str(key.data());
+  // std::string key_str(key.data());
+  std::string key_byte(key.data());
+  std::string key_str = key_byte.substr(0,17);
   // std::string key_byte(key.data());
   // std::cout << "Put key: " << key_byte << std::endl;
   // int key_val = stoi(key_byte.substr(0,15));
@@ -268,7 +274,7 @@ Status OptimisticTransaction::LoadHotKey(const Slice& key, const Slice& value, b
                                             OptimisticTransactionDB>(txn_db_);
   std::string key_byte(key.data());
   std::cout << "LoadHotKey key: " << key_byte << " len: " << key_byte.length() << std::endl;
-  std::string key_str = key_byte.substr(0,18);
+  std::string key_str = key_byte.substr(0,17);
   std::cout << "LoadHotKey key_substr: " << key_str << " len: " << key_str.length() << std::endl;
   // int key_val = stoi(key_substr);
   // std::string key_str = std::to_string(key_val);
