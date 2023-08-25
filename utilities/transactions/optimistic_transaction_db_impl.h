@@ -196,10 +196,10 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   Status queue_hk_trx(Transaction* txn) {
     auto txn_impl = reinterpret_cast<Transaction*>(txn);
-    // std::cout << "queue_hk_trx tid: " << txn->GetIndex();
-    txn_impl->ResetHKCV();
+    std::cout << "queue_hk_trx tid: " << txn->GetIndex();
+    // txn_impl->ResetHKCV();
     txn_impl->SetHKCV();
-    // std::cout << "Released queue_hk_trx tid: " << txn->GetIndex();
+    std::cout << "Released queue_hk_trx tid: " << txn->GetIndex();
     // txn_impl->cv_.wait(lock, [&txn_impl]{ return txn_impl->ready_; });
     return Status::OK();
   }
@@ -1263,8 +1263,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
     if (ex_hk_reads_[key].size() > 0 && ex_hk_rws_[key].size() > 0) {
       if (*(ex_hk_reads_[key].begin()) < *(ex_hk_rws_[key].begin())) {
-        std::cout << "partial release_next_key---rw: " << key << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
-        // free all the reads we can
+        std::cout << "partial release_next_key---read: " << key << " ex_hk_reads_[key]: " << ex_hk_reads_[key].size() << " hk_read_queue_[key]: " << hk_read_queue_[key].size() << std::endl;
         auto eit = ex_hk_reads_[key].begin();
         auto hit = hk_read_queue_[key].begin();
         uint32_t limit = *(ex_hk_rws_[key].begin());
@@ -1282,7 +1281,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
         }
       }
     } else if (ex_hk_reads_[key].size() > 0) {
-      std::cout << "partial release_next_key---rw: " << key << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
+      std::cout << "release_next_key---read: " << key << " ex_hk_reads_[key]: " << ex_hk_reads_[key].size() << " hk_read_queue_[key]: " << hk_read_queue_[key].size() << std::endl;
       // free all reads in hk_read_queue_ since no rw
       auto eit = ex_hk_reads_[key].begin();
       auto hit = hk_read_queue_[key].begin();
@@ -1400,6 +1399,9 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
       std::cout << "2-queueing hkey: " << key << "cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
       queue_hkey(idx, rw, txn->GetIndex());
+
+      auto txn_impl = reinterpret_cast<Transaction*>(txn);
+      txn_impl->ResetHKCV();
 
       hk_mutexes_[idx].unlock();
       return queue_hk_trx(txn);

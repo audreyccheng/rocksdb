@@ -140,6 +140,7 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
     //   txn_db_impl->KeySubCount(key_str, 0 /* rw */, this->GetIndex());
     // }
   // }
+  std::cout << "Get DONE key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
     if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
       txn_db_impl->KeySubCount(key_str, 0 /* rw */, this->GetIndex());
     }
@@ -272,6 +273,7 @@ Status OptimisticTransaction::DeleteKey(const Slice& key) {
 Status OptimisticTransaction::LoadHotKey(const Slice& key, const Slice& value, bool isReadWrite) {
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
+  // std::string key_str(key.data());
   std::string key_byte(key.data());
   std::cout << "LoadHotKey key: " << key_byte << " len: " << key_byte.length() << std::endl;
   std::string key_str = key_byte.substr(0,17);

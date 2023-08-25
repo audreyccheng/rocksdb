@@ -7,6 +7,7 @@
 
 
 #include <limits>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -673,11 +674,12 @@ class Transaction {
     cv_.notify_all();
   }
 
-  virtual void ResetCV() {
-    ready_ = false;
-  }
+  // virtual void ResetCV() {
+  //   ready_ = false;
+  // }
 
   virtual void SetHKCV() {
+    // hk_ready_ = false;
     std::unique_lock<std::mutex> lock(hk_trx_mtx_);
     while (!hk_ready_) {
       hk_cv_.wait(lock);
@@ -688,6 +690,7 @@ class Transaction {
     std::unique_lock<std::mutex> lock(hk_trx_mtx_);
     hk_ready_ = true;
     hk_cv_.notify_all();
+    std::cout << "ReleaseHKCV tid: " << index_ << std::endl;
   }
 
   virtual void ResetHKCV() {
