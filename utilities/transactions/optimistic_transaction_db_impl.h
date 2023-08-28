@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <shared_mutex>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
