@@ -661,6 +661,14 @@ class Transaction {
 
   virtual void ClearHotKeys() { hot_keys_.clear(); }
 
+  virtual const std::unordered_set<std::string> & GetKeyLocks() const { return key_locks_; }
+
+  virtual void AddKL(const std::string &key) { key_locks_.insert(key); }
+
+  virtual void RemoveKL(const std::string &key) { key_locks_.erase(key); }
+
+  virtual void ClearKeyLocks() { key_locks_.clear(); }
+
   virtual void SetCV() {
     std::unique_lock<std::mutex> lock(trx_mtx_);
     while (!ready_) {
@@ -772,6 +780,7 @@ class Transaction {
   std::map<std::string, std::string> read_values_;
   std::map<std::string, std::string> write_values_;
   std::unordered_set<std::string> hot_keys_; // only rw hot keys
+  std::unordered_set<std::string> key_locks_; // only rw keys
 
   // scheduling condition variable
   bool ready_ = false;

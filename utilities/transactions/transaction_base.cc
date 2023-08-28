@@ -104,6 +104,7 @@ void TransactionBaseImpl::Clear() {
   read_values_.clear();
   write_values_.clear();
   hot_keys_.clear();
+  key_locks_.clear();
 
   if (dbimpl_->allow_2pc()) {
     InitWriteBatch();

@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "db/write_callback.h"
-#include "folly/SharedMutex.h"
+// #include "folly/SharedMutex.h"
 #include "rocksdb/db.h"
 #include "rocksdb/options.h"
 #include "rocksdb/utilities/optimistic_transaction_db.h"
@@ -944,7 +944,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   void AddKey(const std::string& key) {
 
     // sys_mutex_.lock();
-    folly::SharedMutex::WriteHolder lock(svm_);
+    // folly::SharedMutex::WriteHolder lock(svm_);
+    svm_.lock();
     if (all_keys_.find(key) == all_keys_.end()) {
       uint32_t id = (uint32_t) all_keys_.size();
       all_keys_.insert(key);
@@ -966,6 +967,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       // std::vector<std::mutex> temp3(id + 1);
       // hk_mutexes_.swap(temp3);
     }
+    svm_.unlock();
     // std::cout << "AddKey kid: " << key_to_int_map_[key] << " versions_mutexes_.size(): " << versions_mutexes_.size() << std::endl;
     // sys_mutex_.unlock();
   }
@@ -975,7 +977,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     if (all_keys_.find(key) == all_keys_.end()) {
       AddKey(key);
     }
-    folly::SharedMutex::ReadHolder lock(svm_);
+    // folly::SharedMutex::ReadHolder lock(svm_);
+    svm_.lock_shared();
 
     std::cout << "AddReadVersion: " << key << " id: " << id << std::endl;
     uint32_t idx = key_to_int_map_[key];
@@ -995,21 +998,54 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
     versions_mutexes_[idx].unlock();
 
+    svm_.unlock_shared();
+
     return rp;
   }
 
-  // std::pair<uint32_t, std::string> AddReadForWriteVersion(const std::string& key, const uint32_t id) {
-  //   // hold lock vm_
-  //   // add key to locked keys
-  //   // keep holding lock
-  // }
+  std::pair<uint32_t, std::string> AddReadForWriteVersion(const std::string& key, const uint32_t id, Transaction* txn) {
+    // hold lock vm_
+    // add key to locked keys
+    // keep holding lock
 
-  bool AddWriteVersion(const std::string& key, const Slice& value, const uint32_t id) {
+    if (all_keys_.find(key) == all_keys_.end()) {
+      AddKey(key);
+    }
+    // folly::SharedMutex::ReadHolder lock(svm_);
+    svm_.lock_shared();
+
+    std::cout << "AddReadForWriteVersion: " << key << " id: " << id << " highest_rv_[key]: " << highest_rv_[key] << std::endl;
+
+    uint32_t idx = key_to_int_map_[key];
+    std::pair<uint32_t, std::string> rp = std::make_pair(0, "");
+    versions_mutexes_[idx].lock();
+
+    read_versions_[key].emplace_back(id);
+    highest_rv_[key] = std::max(id, highest_rv_[key]);
+
+    if (write_versions_[key].size() != 0) {
+      rp.first = write_versions_[key][write_versions_[key].size() - 1].first;
+      rp.second = write_versions_[key][write_versions_[key].size() - 1].second;
+      // rp = &(write_versions_[key][write_versions_[key].size() - 1]);
+      // std::cout << "VReadVersion: " << key << " id: " << rp.first
+      // << " val.size() :" << rp.second.length() << std::endl;
+    }
+
+    txn->AddKL(key);
+
+    // versions_mutexes_[idx].unlock();
+    svm_.unlock_shared();
+
+    return rp;
+  }
+
+  bool AddWriteVersion(const std::string& key, const Slice& value, const uint32_t id) { //, Transaction* txn
     // std::unique_lock<decltype(vm_)> lock(vm_);
     if (all_keys_.find(key) == all_keys_.end()) {
       AddKey(key);
     }
-    folly::SharedMutex::ReadHolder lock(svm_);
+    // folly::SharedMutex::ReadHolder lock(svm_);
+    svm_.lock_shared();
 
     std::cout << "AddWriteVersion: " << key << " id: " << id << " highest_rv_[key]: " << highest_rv_[key]
     << " val.size() :" << value.size() << std::endl;
@@ -1035,6 +1071,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     }
 
     versions_mutexes_[idx].unlock();
+
+    svm_.unlock_shared();
 
     return success;
   }
@@ -1077,7 +1115,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   void ClearReadVersion(const std::string& key, const uint32_t id) {
     // std::unique_lock<decltype(vm_)> lock(vm_);
-    folly::SharedMutex::ReadHolder lock(svm_);
+    // folly::SharedMutex::ReadHolder lock(svm_);
+    svm_.lock_shared();
     std::cout << "ClearReadVersion key: " << key << " id: " << id << std::endl;
     uint32_t idx = key_to_int_map_[key];
     versions_mutexes_[idx].lock();
@@ -1087,11 +1126,13 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       read_versions_[key].end());
 
     versions_mutexes_[idx].unlock();
+    svm_.unlock_shared();
   }
 
   void ClearWriteVersion(const std::string& key, const std::string& value, const uint32_t id) {
     // std::unique_lock<decltype(vm_)> lock(vm_);
-    folly::SharedMutex::ReadHolder lock(svm_);
+    // folly::SharedMutex::ReadHolder lock(svm_);
+    svm_.lock_shared();
     std::cout << "ClearWriteVersion key: " << key << " val size: " << value.length() << " id: " << id << std::endl;
     uint32_t idx = key_to_int_map_[key];
     versions_mutexes_[idx].lock();
@@ -1101,6 +1142,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       write_versions_[key].end());
 
     versions_mutexes_[idx].unlock();
+    svm_.unlock_shared();
   }
 
   void CheckCommitVersions(Transaction* txn) {
@@ -1480,7 +1522,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   std::deque<std::mutex> versions_mutexes_;
 
   // std::vector<std::mutex> versions_mutexes_; // locks for hot key version histories
-  folly::SharedMutex svm_;
+  // folly::SharedMutex svm_;
+  mutable std::shared_mutex svm_;
   // std::mutex vm_;
   std::map<std::string, std::vector<uint32_t>> read_versions_; // <hot key, id>
   std::map<std::string, std::vector<std::pair<uint32_t, std::string>>> write_versions_; // <hot key, (id, value)>
