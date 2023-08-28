@@ -944,7 +944,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   void AddKey(const std::string& key) {
 
     // sys_mutex_.lock();
-    SharedMutex::WriteHolder lock(svm_);
+    folly::SharedMutex::WriteHolder lock(svm_);
     if (all_keys_.find(key) == all_keys_.end()) {
       uint32_t id = (uint32_t) all_keys_.size();
       all_keys_.insert(key);
@@ -975,7 +975,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     if (all_keys_.find(key) == all_keys_.end()) {
       AddKey(key);
     }
-    SharedMutex::ReadHolder lock(svm_);
+    folly::SharedMutex::ReadHolder lock(svm_);
 
     // std::cout << "AddReadVersion: " << key << " id: " << id << std::endl;
     uint32_t idx = key_to_int_map_[key];
@@ -1009,7 +1009,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     if (all_keys_.find(key) == all_keys_.end()) {
       AddKey(key);
     }
-    SharedMutex::ReadHolder lock(svm_);
+    folly::SharedMutex::ReadHolder lock(svm_);
 
     // std::cout << "AddWriteVersion: " << key << " id: " << id << " highest_rv_[key]: " << highest_rv_[key]
     // << " val.size() :" << value.size() << std::endl;
@@ -1077,7 +1077,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   void ClearReadVersion(const std::string& key, const uint32_t id) {
     // std::unique_lock<decltype(vm_)> lock(vm_);
-    SharedMutex::ReadHolder lock(svm_);
+    folly::SharedMutex::ReadHolder lock(svm_);
     // std::cout << "ClearReadVersion key: " << key << " id: " << id << std::endl;
     uint32_t idx = key_to_int_map_[key];
     versions_mutexes_[idx].lock();
@@ -1091,7 +1091,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   void ClearWriteVersion(const std::string& key, const std::string& value, const uint32_t id) {
     // std::unique_lock<decltype(vm_)> lock(vm_);
-    SharedMutex::ReadHolder lock(svm_);
+    folly::SharedMutex::ReadHolder lock(svm_);
     // std::cout << "ClearWriteVersion key: " << key << " val size: " << value.length() << " id: " << id << std::endl;
     uint32_t idx = key_to_int_map_[key];
     versions_mutexes_[idx].lock();
