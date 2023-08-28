@@ -1053,6 +1053,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
     uint32_t idx = key_to_int_map_[key];
     bool success = true;
+    // only lock if not promise
     if (!txn->CheckKL(key)) {
       versions_mutexes_[idx].lock();
     } else {
@@ -1211,9 +1212,10 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       txn->ClearHotKeys();
     }
 
+    // free promises
     if (txn->GetKeyLocks().size() > 0) {
       for (const std::string& k : txn->GetKeyLocks()) {
-        uint32_t idx = key_to_int_map_[key];
+        uint32_t idx = key_to_int_map_[k];
         versions_mutexes_[idx].unlock();
       }
       txn->ClearKeyLocks();
