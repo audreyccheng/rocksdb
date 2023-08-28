@@ -1477,9 +1477,9 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   std::unordered_set<std::string> all_keys_;
   std::map<std::string, uint32_t> key_to_int_map_;
-  // std::deque<std::mutex> versions_mutexes_;
+  std::deque<std::mutex> versions_mutexes_;
 
-  std::vector<std::mutex> versions_mutexes_; // locks for hot key version histories
+  // std::vector<std::mutex> versions_mutexes_; // locks for hot key version histories
   folly::SharedMutex svm_;
   // std::mutex vm_;
   std::map<std::string, std::vector<uint32_t>> read_versions_; // <hot key, id>
