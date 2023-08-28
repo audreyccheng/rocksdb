@@ -667,6 +667,8 @@ class Transaction {
 
   virtual void RemoveKL(const std::string &key) { key_locks_.erase(key); }
 
+  virtual bool CheckKL(const std::string &key) { return (key_locks_.find(key) != key_locks_.end()); }
+
   virtual void ClearKeyLocks() { key_locks_.clear(); }
 
   virtual void SetCV() {

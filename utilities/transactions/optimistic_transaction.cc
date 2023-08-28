@@ -179,7 +179,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
     //   txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
     // }
 
-    auto rp = txn_db_impl->AddReadVersion(key_str, this->index_); // if id == 0, fetch from DB
+    auto rp = txn_db_impl->AddReadForWriteVersion(key_str, this->index_, this); // if id == 0, fetch from DB
     if (rp.first != 0) {
       get_success = true;
       this->read_versions_[key_str] = rp.first;
@@ -223,7 +223,7 @@ Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
   bool put_success = false;
   // if (txn_db_impl->CheckHotKey(key_str)) {
     // std::cout << "Put HOT key: " << key_str << " val_size:" << value.size() << std::endl;
-    if (txn_db_impl->AddWriteVersion(key_str, value, this->index_)) {
+    if (txn_db_impl->AddWriteVersion(key_str, value, this->index_, this)) {
       put_success = true;
       size_t len = value.size();
       char* val = new char[len];
@@ -492,7 +492,7 @@ Status OptimisticTransaction::Rollback() {
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   assert(txn_db_impl);
-  txn_db_impl->CheckCommitVersions(this);
+  // txn_db_impl->CheckCommitVersions(this);
   txn_db_impl->CleanVersions(this, true);
 
   FreeLock();

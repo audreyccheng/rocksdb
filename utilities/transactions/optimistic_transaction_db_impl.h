@@ -1040,7 +1040,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     return rp;
   }
 
-  bool AddWriteVersion(const std::string& key, const Slice& value, const uint32_t id) { //, Transaction* txn
+  bool AddWriteVersion(const std::string& key, const Slice& value, const uint32_t id, Transaction* txn) { //
     // std::unique_lock<decltype(vm_)> lock(vm_);
     if (all_keys_.find(key) == all_keys_.end()) {
       AddKey(key);
@@ -1053,7 +1053,11 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
     uint32_t idx = key_to_int_map_[key];
     bool success = true;
-    versions_mutexes_[idx].lock();
+    if (!txn->CheckKL(key)) {
+      versions_mutexes_[idx].lock();
+    } else {
+      txn->RemoveKL(key);
+    }
 
     if (highest_rv_[key] > id) {
       success = false;
@@ -1205,6 +1209,14 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
         KeySubCount(k, 1 /* rw */, txn->GetIndex());
       }
       txn->ClearHotKeys();
+    }
+
+    if (txn->GetKeyLocks().size() > 0) {
+      for (const std::string& k : txn->GetKeyLocks()) {
+        uint32_t idx = key_to_int_map_[key];
+        versions_mutexes_[idx].unlock();
+      }
+      txn->ClearKeyLocks();
     }
 
     std::cout << "DONE cleaning" << std::endl;
