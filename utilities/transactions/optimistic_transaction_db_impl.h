@@ -1045,9 +1045,9 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     txn->SetIndex(last_index_);
     ongoing_map_[txn->GetIndex()] = std::vector<uint32_t>();
     ongoing_txns_map_[txn->GetIndex()] = txn;
-    // std::cout << "TScheduleImpl txn: " << txn->GetIndex()
-    // << " ongoing_map_ size: " << ongoing_map_.size()
-    // << std::endl;
+    std::cout << "TScheduleImpl txn: " << txn->GetIndex()
+    << " ongoing_map_ size: " << ongoing_map_.size()
+    << std::endl;
     // // hk_txns_map_[txn->GetIndex()] = txn;
     // // std::cout << "hk_txns_map_.size(): " << hk_txns_map_.size() << " txn: " << txn->GetIndex() << std::endl;
 
@@ -1480,7 +1480,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   // std::deque<std::mutex> versions_mutexes_;
 
   std::vector<std::mutex> versions_mutexes_; // locks for hot key version histories
-  SharedMutex svm_;
+  folly::SharedMutex svm_;
   // std::mutex vm_;
   std::map<std::string, std::vector<uint32_t>> read_versions_; // <hot key, id>
   std::map<std::string, std::vector<std::pair<uint32_t, std::string>>> write_versions_; // <hot key, (id, value)>
