@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "db/write_callback.h"
+#include "folly/Synchronized.h"
 #include "rocksdb/db.h"
 #include "rocksdb/options.h"
 #include "rocksdb/utilities/optimistic_transaction_db.h"
@@ -993,6 +994,12 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     // versions_mutexes_[idx].unlock();
 
     return rp;
+  }
+
+  std::pair<uint32_t, std::string> AddReadForWriteVersion(const std::string& key, const uint32_t id) {
+    // hold lock vm_
+    // add key to locked keys
+    // keep holding lock
   }
 
   bool AddWriteVersion(const std::string& key, const Slice& value, const uint32_t id) {

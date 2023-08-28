@@ -690,7 +690,7 @@ class Transaction {
     std::unique_lock<std::mutex> lock(hk_trx_mtx_);
     hk_ready_ = true;
     hk_cv_.notify_all();
-    std::cout << "ReleaseHKCV tid: " << index_ << std::endl;
+    // std::cout << "ReleaseHKCV tid: " << index_ << std::endl;
   }
 
   virtual void ResetHKCV() {
