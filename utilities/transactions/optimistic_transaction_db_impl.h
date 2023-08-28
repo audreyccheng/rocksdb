@@ -996,11 +996,11 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     return rp;
   }
 
-  std::pair<uint32_t, std::string> AddReadForWriteVersion(const std::string& key, const uint32_t id) {
-    // hold lock vm_
-    // add key to locked keys
-    // keep holding lock
-  }
+  // std::pair<uint32_t, std::string> AddReadForWriteVersion(const std::string& key, const uint32_t id) {
+  //   // hold lock vm_
+  //   // add key to locked keys
+  //   // keep holding lock
+  // }
 
   bool AddWriteVersion(const std::string& key, const Slice& value, const uint32_t id) {
     std::unique_lock<decltype(vm_)> lock(vm_);
