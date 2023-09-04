@@ -35,6 +35,33 @@ PessimisticTransactionDB::PessimisticTransactionDB(
       lock_manager_(NewLockManager(this, txn_db_options)) {
   assert(db_impl_ != nullptr);
   info_log_ = db_impl_->GetDBOptions().info_log;
+
+  // TODO(accheng): init shared data structs here
+  num_clusters_ = 256;
+
+  cluster_sched_idx_ = 1;
+
+  std::vector<int> arr {0, /* No-op */
+    1,2 //,3,4 ,5,6,7,8,9,10,11,12,13,14,15,16
+    // 1,2,3,4,5,6,7,8,//9,10 //,11,12,13,14,15,16,17,18,19,20 //,21,22,23,24,25,26,27,28,29,30,31,32,
+  };
+  new (&cluster_sched_)(decltype(cluster_sched_))();
+  cluster_sched_.resize(arr.size());
+  for (uint32_t i = 0; i < cluster_sched_.size(); i++) {
+    cluster_sched_[i] = arr[i];
+  }
+
+  new (&sched_counts_)(decltype(sched_counts_))();
+  sched_counts_.resize(num_clusters_ + 1);
+  for (auto& p : sched_counts_) {
+    p = std::make_unique<std::atomic<int>>(0);
+  }
+
+  std::vector<std::mutex> temp(num_clusters_ + 1);
+  cluster_hash_mutexes_.swap(temp);
+  for (int i = 0; i < num_clusters_ + 1; ++i) {
+    cluster_hash_[i] = std::vector<Transaction *>();
+  }
 }
 
 // Support initiliazing PessimisticTransactionDB from a stackable db
@@ -60,6 +87,33 @@ PessimisticTransactionDB::PessimisticTransactionDB(
       txn_db_options_(txn_db_options),
       lock_manager_(NewLockManager(this, txn_db_options)) {
   assert(db_impl_ != nullptr);
+
+  // TODO(accheng): init shared data structs here
+  num_clusters_ = 256;
+
+  cluster_sched_idx_ = 1;
+
+  std::vector<int> arr {0, /* No-op */
+    1,2 //,3,4 ,5,6,7,8,9,10,11,12,13,14,15,16
+    // 1,2,3,4,5,6,7,8,//9,10 //,11,12,13,14,15,16,17,18,19,20 //,21,22,23,24,25,26,27,28,29,30,31,32,
+  };
+  new (&cluster_sched_)(decltype(cluster_sched_))();
+  cluster_sched_.resize(arr.size());
+  for (uint32_t i = 0; i < cluster_sched_.size(); i++) {
+    cluster_sched_[i] = arr[i];
+  }
+
+  new (&sched_counts_)(decltype(sched_counts_))();
+  sched_counts_.resize(num_clusters_ + 1);
+  for (auto& p : sched_counts_) {
+    p = std::make_unique<std::atomic<int>>(0);
+  }
+
+  std::vector<std::mutex> temp(num_clusters_ + 1);
+  cluster_hash_mutexes_.swap(temp);
+  for (int i = 0; i < num_clusters_ + 1; ++i) {
+    cluster_hash_[i] = std::vector<Transaction *>();
+  }
 }
 
 PessimisticTransactionDB::~PessimisticTransactionDB() {

@@ -486,14 +486,39 @@ Status PessimisticTransaction::CommitBatch(WriteBatch* batch) {
 }
 
 Status PessimisticTransaction::Schedule(int type) {
-  assert(type >= 0);
-  return Status::OK();
+  // assert(type >= 0);
+  // return Status::OK();
+
+  uint16_t cluster = (uint16_t) type;
+  this->SetCluster(cluster);
+
+  Status s = txn_db_impl_->NewScheduleImpl(cluster, this);
+
+  return s;
 }
 
 // Status PessimisticTransaction::KeySchedule(int type, const std::vector<std::string>& keys) {
 //   assert(type >= 0);
 //   return Status::OK();
 // }
+
+void PessimisticTransaction::FreeLock() {
+  // TODO(accheng): update sched_counts_
+  // std::cout << "FreeLock cluster: " << this->GetCluster() << std::endl;
+  if (this->GetCluster() != 0) {
+    // std::cout << "committing cluster: " << this->GetCluster() << std::endl; // <<  " count: " << sched_counts_[this->GetCluster()]->load()
+    // // OLD CODE 222
+    // txn_db_impl->SubCount(this->GetCluster());
+    // this->SetCluster(0); // In case commit fails, mark that we have already freed this cluster
+
+    txn_db_impl_->NewSubCount(this->GetCluster());
+    this->SetCluster(0);
+
+    // txn_db_impl->SubDepCount(this);
+    // this->SetCluster(0);
+    // this->SetIndex(0);
+  }
+}
 
 Status PessimisticTransaction::Prepare() {
   if (name_.empty()) {
@@ -633,6 +658,7 @@ Status PessimisticTransaction::Commit() {
       if (!name_.empty()) {
         txn_db_impl_->UnregisterTransaction(this);
       }
+      FreeLock();
       Clear();
       if (s.ok()) {
         txn_state_.store(COMMITTED);
@@ -657,6 +683,7 @@ Status PessimisticTransaction::Commit() {
         log_number_);
     txn_db_impl_->UnregisterTransaction(this);
 
+    FreeLock();
     Clear();
     txn_state_.store(COMMITTED);
   } else if (txn_state_ == LOCKS_STOLEN) {
@@ -827,6 +854,7 @@ Status PessimisticTransaction::Rollback() {
       assert(log_number_ > 0);
       dbimpl_->logs_with_prep_tracker()->MarkLogAsHavingPrepSectionFlushed(
           log_number_);
+      FreeLock();
       Clear();
       txn_state_.store(ROLLEDBACK);
     }
@@ -842,6 +870,7 @@ Status PessimisticTransaction::Rollback() {
       }
     }
     // prepare couldn't have taken place
+    FreeLock();
     Clear();
   } else if (txn_state_ == COMMITTED) {
     s = Status::InvalidArgument("This transaction has already been committed.");

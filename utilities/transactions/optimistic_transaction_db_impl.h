@@ -499,18 +499,18 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     // std::cout << "trx cluster: " << cluster << std::endl;
 
     // TODO(accheng): don't queue
-    int key_set_size = 3;
-    if (cluster < 100) {
-      key_set_size = 5;
-    }
-    double lookup_prob = (2 * 1.0) / key_set_size;
-    double defer_prob = 0.60;
-    int defer = static_cast<int>((lookup_prob * defer_prob) * 100);
-    if ((rand() % 100) >= defer) {
-      // std::cout << "not queueing cluster: " << cluster << std::endl;
-      txn->SetCluster(0);
-      return Status::OK();
-    }
+    // int key_set_size = 3;
+    // if (cluster < 100) {
+    //   key_set_size = 5;
+    // }
+    // double lookup_prob = (2 * 1.0) / key_set_size;
+    // double defer_prob = 0.60;
+    // int defer = static_cast<int>((lookup_prob * defer_prob) * 100);
+    // if ((rand() % 100) >= defer) {
+    //   // std::cout << "not queueing cluster: " << cluster << std::endl;
+    //   txn->SetCluster(0);
+    //   return Status::OK();
+    // }
 
     sys_mutex_.lock();
     // last_index_++;

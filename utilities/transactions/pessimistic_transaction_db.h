@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <iostream>
 #include <mutex>
 #include <queue>
 #include <set>
@@ -180,6 +181,169 @@ class PessimisticTransactionDB : public TransactionDB {
                                  std::vector<std::shared_ptr<const Snapshot>>&
                                      timestamped_snapshots) const override;
 
+  Status queue_trx(Transaction* txn) {
+    auto txn_impl = reinterpret_cast<Transaction*>(txn);
+    txn_impl->SetCV();
+    // txn_impl->cv_.wait(lock, [&txn_impl]{ return txn_impl->ready_; });
+    return Status::OK();
+  }
+
+  bool lock_clust_peek(uint16_t cluster) {
+    cluster_hash_mutexes_[cluster].lock();
+    bool queued = (cluster_hash_[cluster].size() > 0);
+    cluster_hash_mutexes_[cluster].unlock();
+    return queued;
+  }
+
+  size_t find_p_idx(uint16_t cluster) {
+    size_t rem10 = cluster % 10;
+    size_t div10 = cluster / 10;
+    size_t clust100 = 0;
+    if (rem10 == 0) {
+      clust100 = div10 - 1;
+    } else {
+      clust100 = div10;
+    }
+    return (clust100 + 100 + 1);
+  }
+
+  // return whether cluster can execute immediately
+  bool check_ongoing_key(uint16_t cluster) {
+    if (cluster > 100) {
+      int total = 0;
+      int idx100 = (cluster % 100); // TODO(accheng): hardcoded
+      if (idx100 < 11 && idx100 > 0) {
+        for (size_t i = 0; i < 10; i++) { // TPCC
+          size_t idx = i + (idx100 - 1) * 10 + 1;
+          // std::cout << "idx: " << idx << " idx100: " << idx100 << std::endl;
+          total += sched_counts_[idx]->load();
+        }
+      }
+      total += sched_counts_[cluster]->load();
+      return (total == 0);
+    }
+
+    size_t p_idx = find_p_idx(cluster);
+    int total = sched_counts_[cluster]->load();
+    total += sched_counts_[p_idx]->load();
+    return (total == 0);
+  }
+
+  void queue_clust_key(uint16_t cluster, Transaction* txn) {
+    // cluster_hash_mutexes_[cluster].lock();
+    cluster_hash_[cluster].push_back(txn);
+    // cluster_hash_mutexes_[cluster].unlock();
+  }
+
+  Status NewScheduleImpl(uint16_t cluster, Transaction* txn) {
+    std::cout << "trx cluster: " << cluster << std::endl;
+
+    // TODO(accheng): don't queue
+    // int key_set_size = 3;
+    // if (cluster < 100) {
+    //   key_set_size = 5;
+    // }
+    // double lookup_prob = (2 * 1.0) / key_set_size;
+    // double defer_prob = 0.60;
+    // int defer = static_cast<int>((lookup_prob * defer_prob) * 100);
+    // if ((rand() % 100) >= defer) {
+    //   // std::cout << "not queueing cluster: " << cluster << std::endl;
+    //   txn->SetCluster(0);
+    //   return Status::OK();
+    // }
+
+    sys_mutex_.lock();
+    // last_index_++;
+    // if (last_index_ % 1000 == 0) {
+    //   print_size();
+    // }
+
+    if (check_ongoing_key(cluster) && !lock_clust_peek(cluster)) {
+
+      sched_counts_[cluster]->fetch_add(1);
+      std::cout << "1-run cluster: " << cluster << std::endl;
+
+      sys_mutex_.unlock();
+      return Status::OK();
+    } else {
+
+      std::cout << "2-queueing cluster: " << cluster << std::endl;
+      queue_clust_key(cluster, txn);
+
+      sys_mutex_.unlock();
+      return queue_trx(txn);
+    }
+  }
+
+  bool release_clust(uint16_t idx) {
+    if (cluster_hash_[idx].size() != 0) {
+      std::cout << "releasing cluster: " << idx << std::endl;
+      sched_counts_[idx]->fetch_add(1);
+
+      cluster_hash_[idx][0]->ReleaseCV();
+      cluster_hash_[idx].erase(cluster_hash_[idx].begin());
+
+      return true;
+    }
+
+    return false;
+  }
+
+  void key_release_next_clust(uint16_t cluster) {
+    if (cluster > 100) {
+      int idx100 = cluster % 100;
+      // int total = 0;
+      for (uint16_t i = 0; i < 10; i++) {
+        size_t idx = i + (idx100 - 1) * 10 + 1;
+        // total += cluster_hash_[idx].size();
+        release_clust(idx);
+      }
+      // std::cout << "total staring from: " << (idx100 - 1) * 10 + 1 << " is: " << total << std::endl;
+    } else {
+      size_t p_idx = find_p_idx(cluster);
+      // std::cout << "total for: " << p_idx << " is: " << cluster_hash_[p_idx].size() << std::endl;
+      if (check_ongoing_key(p_idx)) {
+        release_clust(p_idx);
+      }
+    }
+  }
+
+  void key_partial_release_next_clust(uint16_t cluster) {
+    if (cluster > 100) {
+      if (sched_counts_[cluster]->load() == 0) {
+        release_clust(cluster);
+      }
+    } else {
+      size_t p_idx = find_p_idx(cluster);
+      if (cluster_hash_[p_idx].size() == 0) {
+        if (sched_counts_[cluster]->load() == 0) {
+          release_clust(cluster);
+        }
+      } else {
+        if (check_ongoing_key(p_idx)) {
+          release_clust(p_idx);
+        }
+      }
+    }
+  }
+
+  void NewSubCount(uint16_t cluster) {
+    sys_mutex_.lock();
+
+    sched_counts_[cluster]->fetch_sub(1);
+    std::cout << "NewSubCount cluster: " << cluster << " sched_count: " << sched_counts_[cluster]->load() <<  std::endl;
+
+    // TODO(accheng): release more than 1?
+
+    if (cluster_hash_[cluster].size() == 0) { // sched_counts_[cluster]->load() == 0
+      key_release_next_clust(cluster);
+    } else {
+      key_partial_release_next_clust(cluster);
+    }
+
+    sys_mutex_.unlock();
+  }
+
  protected:
   DBImpl* db_impl_;
   std::shared_ptr<Logger> info_log_;
@@ -227,6 +391,19 @@ class PessimisticTransactionDB : public TransactionDB {
   // map from name to two phase transaction instance
   std::mutex name_map_mutex_;
   std::unordered_map<TransactionName, Transaction*> transactions_;
+
+  // TODO(accheng): shared data structs here
+  std::mutex sys_mutex_;
+
+  uint16_t num_clusters_;
+
+  uint16_t cluster_sched_idx_;
+  std::vector<uint16_t> cluster_sched_;
+  std::vector<std::unique_ptr<std::atomic_int>> sched_counts_;
+
+  // Protected map of <cluster, callbacks>
+  std::vector<std::mutex> cluster_hash_mutexes_;
+  std::map<uint16_t, std::vector<Transaction *>> cluster_hash_;
 
   // Signal that we are testing a crash scenario. Some asserts could be relaxed
   // in such cases.

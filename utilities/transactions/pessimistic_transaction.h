@@ -214,6 +214,8 @@ class PessimisticTransaction : public TransactionBaseImpl {
 
   void UnlockGetForUpdate(ColumnFamilyHandle* column_family,
                           const Slice& key) override;
+
+  void FreeLock();
 };
 
 class WriteCommittedTxn : public PessimisticTransaction {

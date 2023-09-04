@@ -123,6 +123,10 @@ class OptimisticScheduleCallback : public WriteCallback {
 
   Status Callback(DB* db) override {
     assert(db != nullptr);
+    if (db == nullptr) {
+      return Status::OK();
+    }
+
     // TODO(accheng): after schedule successful
     auto txn_impl = reinterpret_cast<Transaction*>(txn_);
     txn_impl->ReleaseCV();
