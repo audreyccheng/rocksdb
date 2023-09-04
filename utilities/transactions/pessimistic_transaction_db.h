@@ -236,7 +236,7 @@ class PessimisticTransactionDB : public TransactionDB {
   }
 
   Status NewScheduleImpl(uint16_t cluster, Transaction* txn) {
-    std::cout << "trx cluster: " << cluster << std::endl;
+    // std::cout << "trx cluster: " << cluster << std::endl;
 
     // TODO(accheng): don't queue
     // int key_set_size = 3;
@@ -261,13 +261,13 @@ class PessimisticTransactionDB : public TransactionDB {
     if (check_ongoing_key(cluster) && !lock_clust_peek(cluster)) {
 
       sched_counts_[cluster]->fetch_add(1);
-      std::cout << "1-run cluster: " << cluster << std::endl;
+      // std::cout << "1-run cluster: " << cluster << std::endl;
 
       sys_mutex_.unlock();
       return Status::OK();
     } else {
 
-      std::cout << "2-queueing cluster: " << cluster << std::endl;
+      // std::cout << "2-queueing cluster: " << cluster << std::endl;
       queue_clust_key(cluster, txn);
 
       sys_mutex_.unlock();
@@ -277,7 +277,7 @@ class PessimisticTransactionDB : public TransactionDB {
 
   bool release_clust(uint16_t idx) {
     if (cluster_hash_[idx].size() != 0) {
-      std::cout << "releasing cluster: " << idx << std::endl;
+      // std::cout << "releasing cluster: " << idx << std::endl;
       sched_counts_[idx]->fetch_add(1);
 
       cluster_hash_[idx][0]->ReleaseCV();
@@ -331,7 +331,7 @@ class PessimisticTransactionDB : public TransactionDB {
     sys_mutex_.lock();
 
     sched_counts_[cluster]->fetch_sub(1);
-    std::cout << "NewSubCount cluster: " << cluster << " sched_count: " << sched_counts_[cluster]->load() <<  std::endl;
+    // std::cout << "NewSubCount cluster: " << cluster << " sched_count: " << sched_counts_[cluster]->load() <<  std::endl;
 
     // TODO(accheng): release more than 1?
 
