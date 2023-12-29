@@ -86,6 +86,20 @@ void Java_org_rocksdb_Transaction_clearSnapshot(JNIEnv* /*env*/,
 
 /*
  * Class:     org_rocksdb_Transaction
+ * Method:    schedule
+ * Signature: (J)V
+ */
+void Java_org_rocksdb_Transaction_schedule(JNIEnv* env, jobject /*jobj*/,
+                                          jlong jhandle, jint jtype) {
+  auto* txn = reinterpret_cast<ROCKSDB_NAMESPACE::Transaction*>(jhandle);
+  ROCKSDB_NAMESPACE::Status s = txn->Schedule(jtype);
+  if (!s.ok()) {
+    ROCKSDB_NAMESPACE::RocksDBExceptionJni::ThrowNew(env, s);
+  }
+}
+
+/*
+ * Class:     org_rocksdb_Transaction
  * Method:    prepare
  * Signature: (J)V
  */
@@ -1548,6 +1562,19 @@ jstring Java_org_rocksdb_Transaction_getName(JNIEnv* env, jobject /*jobj*/,
   ROCKSDB_NAMESPACE::TransactionName name = txn->GetName();
   return env->NewStringUTF(name.data());
 }
+
+// jint Java_org_rocksdb_Transaction_getCluster(JNIEnv* env, jobject /*jobj*/,
+//                                              jlong jhandle) {
+//   auto* txn = reinterpret_cast<ROCKSDB_NAMESPACE::Transaction*>(jhandle);
+//   return static_cast<jint>(txn->GetCluster());
+// }
+
+// void Java_org_rocksdb_Transaction_setCluster(JNIEnv* /*env*/,
+//                                                jobject /*jobj*/, jlong jhandle,
+//                                                jint jcluster) {
+//   auto* txn = reinterpret_cast<ROCKSDB_NAMESPACE::Transaction*>(jhandle);
+//   txn->SetCluster(jcluster);
+// }
 
 /*
  * Class:     org_rocksdb_Transaction

@@ -40,6 +40,22 @@ class OptimisticTransaction : public TransactionBaseImpl {
                     const WriteOptions& write_options,
                     const OptimisticTransactionOptions& txn_options);
 
+  Status Schedule(int type) override;
+
+  // Status KeySchedule(int type, const std::vector<std::string>& keys) override;
+
+  // using Transaction::Get;
+  Status Get2(const ReadOptions& options, const Slice& key, std::string* value) override;
+
+  // using Transaction::GetForUpdate;
+  Status GetForUpdate2(const ReadOptions& options, const Slice& key,
+                              std::string* value, bool exclusive,
+                              const bool do_validate) override;
+
+  Status Put2(const Slice& key, const Slice& value) override;
+
+  // TODO(accheng): scheduling for Delete() currently unimplemented
+
   Status Prepare() override;
 
   Status Commit() override;
@@ -66,6 +82,10 @@ class OptimisticTransaction : public TransactionBaseImpl {
   //
   // Should only be called on writer thread.
   Status CheckTransactionForConflicts(DB* db);
+
+  void TryScheduleKey(const Slice& key);
+
+  void FreeLock();
 
   void Clear() override;
 
@@ -95,5 +115,28 @@ class OptimisticTransactionCallback : public WriteCallback {
   OptimisticTransaction* txn_;
 };
 
-}  // namespace ROCKSDB_NAMESPACE
+class OptimisticScheduleCallback : public WriteCallback {
+ public:
+  explicit OptimisticScheduleCallback(OptimisticTransaction* txn)
+      : txn_(txn) {((void)txn_); } // TODO(accheng): needed?
 
+  Status Callback(DB* db) override {
+    assert(db != nullptr);
+    // TODO(accheng): after schedule successful
+    auto txn_impl = reinterpret_cast<Transaction*>(txn_);
+    txn_impl->ReleaseCV();
+
+    return Status::OK();
+  }
+
+  bool AllowWriteBatching() override { return false; }
+
+  // uint16_t GetTxnCluster() {
+  //   return txn_->GetCluster();
+  // }
+
+ private:
+  OptimisticTransaction* txn_;
+};
+
+}  // namespace ROCKSDB_NAMESPACE

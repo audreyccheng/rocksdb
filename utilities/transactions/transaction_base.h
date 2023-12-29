@@ -5,7 +5,7 @@
 
 #pragma once
 
-
+#include <iostream>
 #include <stack>
 #include <string>
 #include <vector>
@@ -125,6 +125,7 @@ class TransactionBaseImpl : public Transaction {
   Status Put(ColumnFamilyHandle* column_family, const Slice& key,
              const Slice& value, const bool assume_tracked = false) override;
   Status Put(const Slice& key, const Slice& value) override {
+    std::cout << "Put2 key: " << key.ToString() << std::endl;
     return Put(nullptr, key, value);
   }
 
@@ -379,4 +380,3 @@ class TransactionBaseImpl : public Transaction {
 };
 
 }  // namespace ROCKSDB_NAMESPACE
-

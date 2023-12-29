@@ -175,6 +175,14 @@ public class Transaction extends RocksObject {
   }
 
   /**
+   * Schedule the current transaction
+   */
+  public void schedule(final int type) throws RocksDBException {
+    assert(isOwningHandle());
+    schedule(nativeHandle_, type);
+  }
+
+  /**
    * Prepare the current transaction for 2PC
    */
   public void prepare() throws RocksDBException {
@@ -1869,6 +1877,26 @@ public class Transaction extends RocksObject {
     return getName(nativeHandle_);
   }
 
+  // public void setCluster(int cluster) {
+  //   assert(isOwningHandle());
+  //   return setCluster(nativeHandle_, cluster);
+  // }
+
+  // public int getCluster() {
+  //   assert(isOwningHandle());
+  //   return getCluster(nativeHandle_);
+  // }
+
+  // public void setCV() {
+  //   assert(isOwningHandle());
+  //   return setCV(nativeHandle_);
+  // }
+
+  // public void releaseCV() {
+  //   assert(isOwningHandle());
+  //   return releaseCV(nativeHandle_);
+  // }
+
   /**
    * Get the ID of the transaction.
    *
@@ -2032,6 +2060,7 @@ public class Transaction extends RocksObject {
       final long transactionNotifierHandle);
   private native long getSnapshot(final long handle);
   private native void clearSnapshot(final long handle);
+  private native void schedule(final long handle, final int type) throws RocksDBException;
   private native void prepare(final long handle) throws RocksDBException;
   private native void commit(final long handle) throws RocksDBException;
   private native void rollback(final long handle) throws RocksDBException;
@@ -2152,6 +2181,10 @@ public class Transaction extends RocksObject {
   private native void setName(final long handle, final String name)
       throws RocksDBException;
   private native String getName(final long handle);
+  // private native void setCluster(final long handle, int cluster);
+  // private native int getCluster(final long handle);
+  // private native void setCV(final long handle);
+  // private native void releaseCV(final long handle);
   private native long getID(final long handle);
   private native boolean isDeadlockDetect(final long handle);
   private native WaitingTransactions getWaitingTxns(final long handle);

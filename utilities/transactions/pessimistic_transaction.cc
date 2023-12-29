@@ -485,6 +485,30 @@ Status PessimisticTransaction::CommitBatch(WriteBatch* batch) {
   return s;
 }
 
+Status PessimisticTransaction::Schedule(int type) {
+  assert(type >= 0);
+  return Status::OK();
+}
+
+Status PessimisticTransaction::Get2(const ReadOptions& options, const Slice& key, std::string* value) {
+  return Status::OK();
+}
+
+Status PessimisticTransaction::GetForUpdate2(const ReadOptions& options, const Slice& key,
+                              std::string* value, bool exclusive,
+                              const bool do_validate) {
+  return Status::OK();
+}
+
+Status PessimisticTransaction::Put2(const Slice& key, const Slice& value) {
+  return Status::OK();
+}
+
+// Status PessimisticTransaction::KeySchedule(int type, const std::vector<std::string>& keys) {
+//   assert(type >= 0);
+//   return Status::OK();
+// }
+
 Status PessimisticTransaction::Prepare() {
   if (name_.empty()) {
     return Status::InvalidArgument(

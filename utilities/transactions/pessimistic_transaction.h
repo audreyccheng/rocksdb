@@ -48,6 +48,18 @@ class PessimisticTransaction : public TransactionBaseImpl {
   void Reinitialize(TransactionDB* txn_db, const WriteOptions& write_options,
                     const TransactionOptions& txn_options);
 
+  Status Schedule(int type) override;
+
+  Status Get2(const ReadOptions& options, const Slice& key, std::string* value) override;
+
+  Status GetForUpdate2(const ReadOptions& options, const Slice& key,
+                              std::string* value, bool exclusive,
+                              const bool do_validate) override;
+
+  Status Put2(const Slice& key, const Slice& value) override;
+
+  // Status KeySchedule(int type, const std::vector<std::string>& keys) override;
+
   Status Prepare() override;
 
   Status Commit() override;
@@ -308,4 +320,3 @@ class WriteCommittedTxn : public PessimisticTransaction {
 };
 
 }  // namespace ROCKSDB_NAMESPACE
-
