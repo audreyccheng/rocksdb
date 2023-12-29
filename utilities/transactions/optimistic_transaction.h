@@ -40,6 +40,8 @@ class OptimisticTransaction : public TransactionBaseImpl {
                     const WriteOptions& write_options,
                     const OptimisticTransactionOptions& txn_options);
 
+  Status Schedule(int type) override;
+
   Status Prepare() override;
 
   Status Commit() override;

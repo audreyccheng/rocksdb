@@ -214,6 +214,9 @@ class Transaction {
   // longer be valid and should be discarded after a call to ClearSnapshot().
   virtual void ClearSnapshot() = 0;
 
+  // Schedule transaction
+  virtual Status Schedule(int type) = 0;
+
   // Prepare the current transaction for 2PC
   virtual Status Prepare() = 0;
 

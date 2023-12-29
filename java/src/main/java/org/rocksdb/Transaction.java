@@ -2032,6 +2032,7 @@ public class Transaction extends RocksObject {
       final long transactionNotifierHandle);
   private native long getSnapshot(final long handle);
   private native void clearSnapshot(final long handle);
+  private native void schedule(final long handle, final int type) throws RocksDBException;
   private native void prepare(final long handle) throws RocksDBException;
   private native void commit(final long handle) throws RocksDBException;
   private native void rollback(final long handle) throws RocksDBException;

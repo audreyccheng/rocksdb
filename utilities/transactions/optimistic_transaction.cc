@@ -54,6 +54,11 @@ OptimisticTransaction::~OptimisticTransaction() {}
 
 void OptimisticTransaction::Clear() { TransactionBaseImpl::Clear(); }
 
+Status OptimisticTransaction::Schedule(int type) {
+  assert(type >= 0);
+  return Status::OK();
+}
+
 Status OptimisticTransaction::Prepare() {
   return Status::InvalidArgument(
       "Two phase commit not supported for optimistic transactions.");
