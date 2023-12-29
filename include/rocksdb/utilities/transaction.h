@@ -214,6 +214,9 @@ class Transaction {
   // longer be valid and should be discarded after a call to ClearSnapshot().
   virtual void ClearSnapshot() = 0;
 
+  // Schedule transaction
+  virtual Status Schedule(int type) = 0;
+
   // Prepare the current transaction for 2PC
   virtual Status Prepare() = 0;
 
@@ -612,6 +615,10 @@ class Transaction {
 
   virtual TransactionID GetID() const { return 0; }
 
+  virtual uint16_t SetCluster(uint16_t cluster) { cluster_ = cluster; }
+
+  virtual uint16_t GetCluster() const { return cluster_; }
+
   virtual bool IsDeadlockDetect() const { return false; }
 
   virtual std::vector<TransactionID> GetWaitingTxns(
@@ -661,6 +668,9 @@ class Transaction {
   // (for two phase commit)
   uint64_t log_number_;
   TransactionName name_;
+
+  // cluster id
+  uint16_t cluster_ = 0;
 
   // Execution status of the transaction.
   std::atomic<TransactionState> txn_state_;

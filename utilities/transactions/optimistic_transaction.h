@@ -40,6 +40,8 @@ class OptimisticTransaction : public TransactionBaseImpl {
                     const WriteOptions& write_options,
                     const OptimisticTransactionOptions& txn_options);
 
+  Status Schedule(int type) override;
+
   Status Prepare() override;
 
   Status Commit() override;
@@ -95,5 +97,23 @@ class OptimisticTransactionCallback : public WriteCallback {
   OptimisticTransaction* txn_;
 };
 
-}  // namespace ROCKSDB_NAMESPACE
+class OptimisticScheduleCallback : public WriteCallback {
+ public:
+  explicit OptimisticScheduleCallback(OptimisticTransaction* txn)
+      : txn_(txn) {}
 
+  Status Callback(DB* db) override {
+    // TODO(accheng): after schedule successful
+
+    return Status::OK();
+  }
+
+  // uint16_t GetTxnCluster() {
+  //   return txn_->GetCluster();
+  // }
+
+ private:
+  OptimisticTransaction* txn_;
+};
+
+}  // namespace ROCKSDB_NAMESPACE

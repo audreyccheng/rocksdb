@@ -10,10 +10,12 @@
 #include <memory>
 #include <vector>
 
+#include "db/write_callback.h"
 #include "rocksdb/db.h"
 #include "rocksdb/options.h"
 #include "rocksdb/utilities/optimistic_transaction_db.h"
 #include "util/cast_util.h"
+#include "util/hash_map.h"
 #include "util/mutexlock.h"
 
 namespace ROCKSDB_NAMESPACE {
@@ -58,6 +60,32 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       bucketed_locks_ = static_cast_with_check<OccLockBucketsImplBase>(
           std::move(bucketed_locks));
     }
+
+    // TODO(accheng): init shared data structs here
+    num_clusters_ = 2;
+
+    cluster_sched_idx_ = 0;
+
+    std::vector<int> arr {0, /* No-op */
+      1,2 //,3,4,5,6,7,8//,9,10
+      // 1,2,3,4,5,6,7,8,//9,10 //,11,12,13,14,15,16,17,18,19,20 //,21,22,23,24,25,26,27,28,29,30,31,32,
+    };
+    new (&cluster_sched_)(decltype(cluster_sched_))();
+    cluster_sched_.resize(arr.size());
+    for (uint32_t i = 0; i < cluster_sched_.size(); i++) {
+      cluster_sched_[i] = arr[i];
+    }
+
+    new (&sched_counts_)(decltype(sched_counts_))();
+    sched_counts_.resize(num_clusters_ + 1);
+    for (auto& p : sched_counts_) {
+      p = std::make_unique<std::atomic<int>>(0);
+    }
+
+    cluster_hash_mutexes_.resize(num_clusters_ + 1);
+    for (int i = 0; i < num_clusters_ + 1; ++i) {
+      cluster_hash_[i] = std::vector<WriteCallback*>();
+    }
   }
 
   ~OptimisticTransactionDBImpl() {
@@ -91,9 +119,15 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   OccValidationPolicy GetValidatePolicy() const { return validate_policy_; }
 
+  Status PartialScheduleImpl(uint16_t cluster, WriteCallback* callback);
+
+  Status ScheduleImpl(uint16_t cluster, WriteCallback* callback);
+
   port::Mutex& GetLockBucket(const Slice& key, uint64_t seed) {
     return bucketed_locks_->GetLockBucket(key, seed);
   }
+
+  void SubCount(uint16_t cluster);
 
  private:
   std::shared_ptr<OccLockBucketsImplBase> bucketed_locks_;
@@ -101,6 +135,22 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   bool db_owner_;
 
   const OccValidationPolicy validate_policy_;
+
+  // TODO(accheng): shared data structs here
+  std::mutex sys_mutex_;
+
+  const uint16_t num_clusters_;
+
+  uint16_t cluster_sched_idx_;
+  std::vector<uint16_t> cluster_sched_;
+  std::vector<std::unique_ptr<std::atomic_int>> sched_counts_;
+
+  // Protected map of <cluster, callbacks>
+  std::vector<std::mutex> cluster_hash_mutexes_;
+  HashMap<uint16_t, std::vector<WriteCallback *>> cluster_hash_;
+
+  // TODO(accheng)
+  // locked hash map based on cluster
 
   void ReinitializeTransaction(Transaction* txn,
                                const WriteOptions& write_options,

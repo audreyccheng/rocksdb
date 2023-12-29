@@ -54,6 +54,29 @@ OptimisticTransaction::~OptimisticTransaction() {}
 
 void OptimisticTransaction::Clear() { TransactionBaseImpl::Clear(); }
 
+Status OptimisticTransaction::Schedule(int type) {
+  // Set up callback which will schedule this transaction.
+  OptimisticScheduleCallback callback(this);
+
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
+  assert(txn_db_impl);
+
+  uint16_t cluster = (uint16_t) type;
+  this->SetCluster(cluster);
+
+  Status s;
+  // NEW CODE
+  // if (cluster > 20) {
+  //   s = txn_db_impl->PartialScheduleImpl(cluster, &callback);
+  // } else {
+  // // OLD CODE
+  s = txn_db_impl->ScheduleImpl(cluster, &callback);
+  // }
+
+  return s;
+}
+
 Status OptimisticTransaction::Prepare() {
   return Status::InvalidArgument(
       "Two phase commit not supported for optimistic transactions.");
@@ -63,6 +86,12 @@ Status OptimisticTransaction::Commit() {
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   assert(txn_db_impl);
+
+  // TODO(accheng): update sched_counts_
+  if (this->GetCluster() != 0) {
+    txn_db_impl->SubCount(this->GetCluster());
+  }
+
   switch (txn_db_impl->GetValidatePolicy()) {
     case OccValidationPolicy::kValidateParallel:
       return CommitWithParallelValidate();
