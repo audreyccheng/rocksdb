@@ -50,6 +50,20 @@ class PessimisticTransaction : public TransactionBaseImpl {
 
   Status Schedule(int type) override;
 
+  using Transaction::GetKey;
+  Status GetKey(const ReadOptions& options, const Slice& key, std::string* value) override;
+
+  using Transaction::GetForUpdateKey;
+  Status GetForUpdateKey(const ReadOptions& options, const Slice& key,
+                              std::string* value, bool exclusive,
+                              const bool do_validate) override;
+
+  using Transaction::PutKey;
+  Status PutKey(const Slice& key, const Slice& value) override;
+
+  using Transaction::LoadHotKey;
+  Status LoadHotKey(const Slice& key, const Slice& value, bool isReadWrite) override;
+
   // Status KeySchedule(int type, const std::vector<std::string>& keys) override;
 
   Status Prepare() override;

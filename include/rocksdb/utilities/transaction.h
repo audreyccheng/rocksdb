@@ -217,6 +217,16 @@ class Transaction {
   // Schedule transaction
   virtual Status Schedule(int type) = 0;
 
+  virtual Status GetKey(const ReadOptions& options, const Slice& key, std::string* value) = 0;
+
+  virtual Status GetForUpdateKey(const ReadOptions& options, const Slice& key,
+                              std::string* value, bool exclusive = true,
+                              const bool do_validate = true) = 0;
+
+  virtual Status PutKey(const Slice& key, const Slice& value) = 0;
+
+  virtual Status LoadHotKey(const Slice& key, const Slice& value, bool isReadWrite) = 0;
+
   // Schedule transaction per key
   // virtual Status KeySchedule(int type, const std::vector<std::string>& keys) = 0;
 
@@ -620,9 +630,17 @@ class Transaction {
 
   virtual uint16_t GetCluster() const { return cluster_; }
 
-  // virtual void SetIndex(uint32_t index) { index_ = index; }
+  virtual void SetIndex(uint32_t index) { index_ = index; }
 
-  // virtual uint32_t GetIndex() const { return index_; }
+  virtual uint32_t GetIndex() const { return index_; }
+
+  virtual void SetAbort(bool abort) { abort_ = abort; }
+
+  virtual bool GetAbort() const { return abort_; }
+
+  virtual const std::map<std::string, uint32_t> & GetReadVersions() const { return read_versions_; }
+
+  virtual const std::map<std::string, Slice> & GetWriteValues() const { return write_values_; }
 
   virtual void SetCV() {
     std::unique_lock<std::mutex> lock(trx_mtx_);
@@ -704,7 +722,13 @@ class Transaction {
   uint16_t cluster_ = 0;
 
   // scheduling index
-  // uint32_t index_ = 0;
+  uint32_t index_ = 0;
+
+  bool abort_ = false;
+
+  std::map<std::string, uint32_t> read_versions_;
+  std::map<std::string, std::string> read_values_;
+  std::map<std::string, Slice> write_values_;
 
   // scheduling condition variable
   bool ready_ = false;

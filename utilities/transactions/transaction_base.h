@@ -379,4 +379,3 @@ class TransactionBaseImpl : public Transaction {
 };
 
 }  // namespace ROCKSDB_NAMESPACE
-

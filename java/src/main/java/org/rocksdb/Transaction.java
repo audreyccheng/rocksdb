@@ -317,6 +317,12 @@ public class Transaction extends RocksObject {
     return get(nativeHandle_, readOptions.nativeHandle_, key, key.length);
   }
 
+  public byte[] getKeyT(final ReadOptions readOptions, final byte[] key)
+      throws RocksDBException {
+    assert(isOwningHandle());
+    return getKeyT(nativeHandle_, readOptions.nativeHandle_, key, key.length);
+  }
+
   /**
    * This function is similar to
    * {@link RocksDB#multiGetAsList} except it will
@@ -622,6 +628,13 @@ public class Transaction extends RocksObject {
         nativeHandle_, readOptions.nativeHandle_, key, key.length, exclusive, true /*doValidate*/);
   }
 
+  public byte[] getForUpdateKey(final ReadOptions readOptions, final byte[] key,
+      final boolean exclusive) throws RocksDBException {
+    assert(isOwningHandle());
+    return getForUpdateKey(
+        nativeHandle_, readOptions.nativeHandle_, key, key.length, exclusive, true /*doValidate*/);
+  }
+
   /**
    * A multi-key version of
    * {@link #getForUpdate(ReadOptions, ColumnFamilyHandle, byte[], boolean)}.
@@ -891,6 +904,18 @@ public class Transaction extends RocksObject {
       throws RocksDBException {
     assert(isOwningHandle());
     put(nativeHandle_, key, key.length, value, value.length);
+  }
+
+  public void putKey(final byte[] key, final byte[] value)
+      throws RocksDBException {
+    assert(isOwningHandle());
+    putKey(nativeHandle_, key, key.length, value, value.length);
+  }
+
+  public void loadHotKey(final byte[] key, final byte[] value, final boolean isReadWrite)
+      throws RocksDBException {
+    assert(isOwningHandle());
+    loadHotKey(nativeHandle_, key, key.length, value, value.length, isReadWrite);
   }
 
   //TODO(AR) refactor if we implement org.rocksdb.SliceParts in future
@@ -2071,6 +2096,8 @@ public class Transaction extends RocksObject {
       final int keyLength, final long columnFamilyHandle) throws RocksDBException;
   private native byte[] get(final long handle, final long readOptionsHandle, final byte[] key,
       final int keyLen) throws RocksDBException;
+  private native byte[] getKeyT(final long handle, final long readOptionsHandle, final byte[] key,
+      final int keyLen) throws RocksDBException;
   private native byte[][] multiGet(final long handle,
       final long readOptionsHandle, final byte[][] keys,
       final long[] columnFamilyHandles) throws RocksDBException;
@@ -2081,6 +2108,9 @@ public class Transaction extends RocksObject {
       final byte[] key, final int keyLength, final long columnFamilyHandle, final boolean exclusive,
       final boolean doValidate) throws RocksDBException;
   private native byte[] getForUpdate(final long handle, final long readOptionsHandle,
+      final byte[] key, final int keyLen, final boolean exclusive, final boolean doValidate)
+      throws RocksDBException;
+  private native byte[] getForUpdateKey(final long handle, final long readOptionsHandle,
       final byte[] key, final int keyLen, final boolean exclusive, final boolean doValidate)
       throws RocksDBException;
   private native byte[][] multiGetForUpdate(final long handle,
@@ -2098,6 +2128,12 @@ public class Transaction extends RocksObject {
       final boolean assumeTracked) throws RocksDBException;
   private native void put(final long handle, final byte[] key,
       final int keyLength, final byte[] value, final int valueLength)
+      throws RocksDBException;
+  private native void putKey(final long handle, final byte[] key,
+      final int keyLength, final byte[] value, final int valueLength)
+      throws RocksDBException;
+  private native void loadHotKey(final long handle, final byte[] key,
+      final int keyLength, final byte[] value, final int valueLength, final boolean isReadWrite)
       throws RocksDBException;
   private native void put(final long handle, final byte[][] keys, final int keysLength,
       final byte[][] values, final int valuesLength, final long columnFamilyHandle,

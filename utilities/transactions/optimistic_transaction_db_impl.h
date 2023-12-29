@@ -64,7 +64,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     }
 
     // TODO(accheng): init shared data structs here
-    num_clusters_ = 256;
+    num_clusters_ = 300;
 
     cluster_sched_idx_ = 1;
 
@@ -89,6 +89,22 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     for (int i = 0; i < num_clusters_ + 1; ++i) {
       cluster_hash_[i] = std::vector<WriteCallback *>();
     }
+
+    // TODO(accheng): take in hot keys
+    // hot_keys_.insert("abc");
+    // hot_keys_.insert("xyz");
+
+    // uint32_t count = 0;
+    // for (const std::string& k : hot_keys_) {
+    //   key_to_int_map_[k] = count;
+    //   read_versions_[k] = std::vector<uint32_t>();
+    //   write_versions_[k] = std::vector<std::pair<uint32_t, Slice>>();
+    //   highest_rv_[k] = 0;
+    //   // highest_wv_[k] = 0;
+    //   count++;
+    // }
+    // std::vector<std::mutex> temp2(count + 1);
+    // versions_mutexes_.swap(temp2);
 
     // // TODO(accheng): currently hardcoded
     // max_queue_len_ = 2;
@@ -133,6 +149,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   }
 
   OccValidationPolicy GetValidatePolicy() const { return validate_policy_; }
+
+  bool CheckHotKey(const std::string& key) { return (hot_keys_.find(key) != hot_keys_.end()); }
 
   port::Mutex& GetLockBucket(const Slice& key, uint64_t seed) {
     return bucketed_locks_->GetLockBucket(key, seed);
@@ -499,18 +517,18 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     // std::cout << "trx cluster: " << cluster << std::endl;
 
     // TODO(accheng): don't queue
-    int key_set_size = 3;
-    if (cluster < 100) {
-      key_set_size = 5;
-    }
-    double lookup_prob = (2 * 1.0) / key_set_size;
-    double defer_prob = 0.60;
-    int defer = static_cast<int>((lookup_prob * defer_prob) * 100);
-    if ((rand() % 100) >= defer) {
-      // std::cout << "not queueing cluster: " << cluster << std::endl;
-      txn->SetCluster(0);
-      return Status::OK();
-    }
+    // int key_set_size = 3;
+    // if (cluster < 100) {
+    //   key_set_size = 5;
+    // }
+    // double lookup_prob = 1.0;//(2 * 1.0) / key_set_size;
+    // double defer_prob = 0.80;//0.60;
+    // int defer = static_cast<int>((lookup_prob * defer_prob) * 100);
+    // if ((rand() % 100) >= defer) {
+    //   // std::cout << "not queueing cluster: " << cluster << std::endl;
+    //   txn->SetCluster(0);
+    //   return Status::OK();
+    // }
 
     sys_mutex_.lock();
     // last_index_++;
@@ -925,6 +943,376 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   //   sys_mutex_.unlock();
   // }
 
+  void release_next_key(uint32_t key) {
+    std::cout << "release_next_key: " << key
+    << " ex_hk_reads_[key]: " << ex_hk_reads_[key].size() << " hk_read_queue_[key]: " << hk_read_queue_[key].size()
+    << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
+    if (ex_hk_reads_[key].size() > 0 && ex_hk_rws_[key].size() > 0) {
+      if (*(ex_hk_reads_[key].begin()) < *(ex_hk_rws_[key].begin())) {
+        // free all the reads we can
+        auto eit = ex_hk_reads_[key].begin();
+        auto hit = hk_read_queue_[key].begin();
+        uint32_t limit = *(ex_hk_rws_[key].begin());
+        std::set<uint32_t> erase_keys = std::set<uint32_t>();
+        while (eit != ex_hk_reads_[key].end() && hit != hk_read_queue_[key].end() && *eit == *hit && *eit < limit) {
+          ongoing_txns_map_[*hit]->ReleaseCV();
+          hk_sched_counts_[key][0]++;
+          erase_keys.insert(*hit);
+          eit++;
+          hit++;
+        }
+        for (auto id : erase_keys) {
+          hk_read_queue_[key].erase(id);
+        }
+      } else {
+        // free at most one rw
+        auto eit = ex_hk_rws_[key].begin();
+        auto hit = hk_rw_queue_[key].begin();
+        uint32_t limit = *(ex_hk_reads_[key].begin());
+        if (eit != ex_hk_rws_[key].end() && hit != hk_rw_queue_[key].end() && *eit == *hit && *eit < limit) {
+          ongoing_txns_map_[*hit]->ReleaseCV();
+          hk_sched_counts_[key][1]++;
+          hk_rw_queue_[key].erase(*hit);
+        }
+      }
+    } else if (ex_hk_reads_[key].size() > 0) {
+      // free all reads in hk_read_queue_ since no rw
+      auto eit = ex_hk_reads_[key].begin();
+      auto hit = hk_read_queue_[key].begin();
+      std::set<uint32_t> erase_keys = std::set<uint32_t>();
+      while (eit != ex_hk_reads_[key].end() && hit != hk_read_queue_[key].end() && *eit == *hit) {
+        ongoing_txns_map_[*hit]->ReleaseCV();
+        hk_sched_counts_[key][0]++;
+        erase_keys.insert(*hit);
+        eit++;
+        hit++;
+      }
+      for (auto id : erase_keys) {
+        hk_read_queue_[key].erase(id);
+      }
+    } else if (ex_hk_rws_[key].size() > 0) {
+      std::cout << "release_next_key---rw: " << key << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
+      // free at most one rw in hk_rw_queue_
+      auto eit = ex_hk_rws_[key].begin();
+      auto hit = hk_rw_queue_[key].begin();
+      if (eit != ex_hk_rws_[key].end() && hit != hk_rw_queue_[key].end() && *eit == *hit) {
+        std::cout << "trying to release rw txn: " << *hit << " found? " << (ongoing_txns_map_.find(*hit) != ongoing_txns_map_.end()) << std::endl;
+        ongoing_txns_map_[*hit]->ReleaseCV();
+        hk_sched_counts_[key][1]++;
+        hk_rw_queue_[key].erase(*hit);
+      }
+    }
+  }
+
+  // can only release any reads if other reads still ongoing
+  void partial_release_next_key(uint32_t key) {
+    std::cout << "partial release_next_key: " << key
+    << " ex_hk_reads_[key]: " << ex_hk_reads_[key].size() << " hk_read_queue_[key]: " << hk_read_queue_[key].size()
+    << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
+    if (ex_hk_reads_[key].size() > 0 && ex_hk_rws_[key].size() > 0) {
+      if (*(ex_hk_reads_[key].begin()) < *(ex_hk_rws_[key].begin())) {
+        // free all the reads we can
+        auto eit = ex_hk_reads_[key].begin();
+        auto hit = hk_read_queue_[key].begin();
+        uint32_t limit = *(ex_hk_rws_[key].begin());
+        std::set<uint32_t> erase_keys = std::set<uint32_t>();
+        while (eit != ex_hk_reads_[key].end() && hit != hk_read_queue_[key].end() && *eit == *hit && *eit < limit) {
+          ongoing_txns_map_[*hit]->ReleaseCV();
+          hk_sched_counts_[key][0]++;
+          erase_keys.insert(*hit);
+          eit++;
+          hit++;
+        }
+        for (auto id : erase_keys) {
+          hk_read_queue_[key].erase(id);
+        }
+      }
+    } else if (ex_hk_reads_[key].size() > 0) {
+      // free all reads in hk_read_queue_ since no rw
+      auto eit = ex_hk_reads_[key].begin();
+      auto hit = hk_read_queue_[key].begin();
+      std::set<uint32_t> erase_keys = std::set<uint32_t>();
+      while (eit != ex_hk_reads_[key].end() && hit != hk_read_queue_[key].end() && *eit == *hit) {
+        ongoing_txns_map_[*hit]->ReleaseCV();
+        hk_sched_counts_[key][0]++;
+        erase_keys.insert(*hit);
+        eit++;
+        hit++;
+      }
+      for (auto id : erase_keys) {
+        hk_read_queue_[key].erase(id);
+      }
+    }
+  }
+
+  void KeySubCount(const std::string& key, uint16_t rw, uint32_t id) {
+    uint32_t idx = key_to_int_map_[key];
+
+    hk_mutexes_[idx].lock();
+
+    hk_sched_counts_[idx][rw]--;
+    // hk_txns_map_.erase(id);
+    std::cout << "SubCount hk_txns_map_.size(): " << hk_txns_map_.size() << " txn: " << id << std::endl;
+
+    if (rw == 0) {
+      std::cout << "REMOVING read key: " << idx << " id: " << txn->GetIndex() << std::endl;
+      ex_hk_reads_[idx].erase(id);
+    } else {
+      std::cout << "REMOVING RW key: " << idx << " id: " << txn->GetIndex() << std::endl;
+      ex_hk_rws_[idx].erase(id);
+    }
+
+    if (hk_sched_counts_[idx][rw] == 0) {
+      release_next_key(idx);
+    } else if (rw == 0) { // TODO(accheng): needed?
+      partial_release_next_key(idx);
+    }
+
+    hk_mutexes_[idx].unlock();
+  }
+
+  // check if txns earlier in the schedule have run
+  bool check_expected(uint32_t key, uint16_t rw, uint32_t tid) {
+    if (rw == 0) {
+      // check if any rw expected before this read
+      for (uint32_t id : ex_hk_rws_[key]) {
+        if (id < tid) {
+          return false;
+        }
+      }
+    } else {
+      // check expected reads and rws if this op is rw
+      for (uint32_t id : ex_hk_reads_[key]) {
+        if (id < tid) {
+          return false;
+        }
+      }
+      for (uint32_t id : ex_hk_rws_[key]) {
+        if (id < tid) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  bool check_ongoing_hkey(uint32_t key, uint16_t rw, uint32_t id) {
+    std::cout << "check_ongoing_hkey: " << key << " rw: " << rw << " txn: " << id
+    << " hk_sched_counts_[key][0]: " << hk_sched_counts_[key][0] << " hk_sched_counts_[key][1]: " << hk_sched_counts_[key][1]
+    << " ex_hk_reads_[key]: " << ex_hk_reads_[key].size() << " hk_read_queue_[key]: " << hk_read_queue_[key].size()
+    << " ex_hk_rws_[key]: " << ex_hk_rws_[key].size() << " hk_rw_queue_[key]: " << hk_rw_queue_[key].size() << std::endl;
+
+    // if this op is a read, check if any ongoing rw
+    if (rw == 0) {
+      return (hk_sched_counts_[key][1] == 0) && check_expected(key, rw, id);
+    } else { // else check if any ongoing ops on this key
+      return (hk_sched_counts_[key][0] == 0) && (hk_sched_counts_[key][1] == 0) && check_expected(key, rw, id);
+    }
+  }
+
+  void queue_hkey(uint32_t key, uint16_t rw, uint32_t id) {
+    if (rw == 0) {
+      hk_read_queue_[key].insert(id);
+    } else {
+      hk_rw_queue_[key].insert(id);
+    }
+  }
+
+  Status ScheduleKey(uint16_t cluster, const std::string& key, uint16_t rw, Transaction* txn) {
+    uint32_t idx = key_to_int_map_[key];
+    hk_mutexes_[idx].lock(); // TODO(accheng): make new mutexes?
+    std::cout << "ScheduleKey: " << key << " cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
+
+    if (check_ongoing_hkey(idx, rw, txn->GetIndex())) {
+      // if (rw == 0) {
+      //   ex_hk_reads_[idx].erase(txn->GetIndex());
+      // } else {
+      //   ex_hk_rws_[idx].erase(txn->GetIndex());
+      // }
+
+      hk_sched_counts_[idx][rw]++;
+
+      std::cout << "1-run cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
+
+      hk_mutexes_[idx].unlock();
+      return Status::OK();
+    } else {
+
+      std::cout << "2-queueing cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
+      queue_hkey(idx, rw, txn->GetIndex());
+
+      hk_mutexes_[idx].unlock();
+      return queue_trx(txn);
+    }
+  }
+
+  void AddHotKey(const std::string& key, uint16_t cluster, uint16_t rw) {
+    if (hot_keys_.find(key) == hot_keys_.end()) {
+      uint32_t id = (uint32_t) hot_keys_.size();
+      hot_keys_.insert(key);
+      key_to_int_map_[key] = id;
+
+      read_versions_[key] = std::vector<uint32_t>();
+      write_versions_[key] = std::vector<std::pair<uint32_t, Slice>>();
+      highest_rv_[key] = 0;
+      // highest_wv_[k] = 0;
+
+      std::vector<std::mutex> temp2(id + 1);
+      versions_mutexes_.swap(temp2);
+
+      hk_sched_counts_[id] = std::vector<uint32_t>(2);
+      hk_read_queue_[id] = std::set<uint32_t>();
+      hk_rw_queue_[id] = std::set<uint32_t>();
+      ex_hk_reads_[id] = std::set<uint32_t>();
+      ex_hk_rws_[id] = std::set<uint32_t>();
+
+      std::vector<std::mutex> temp3(id + 1);
+      hk_mutexes_.swap(temp3);
+    }
+
+    uint32_t idx = key_to_int_map_[key];
+    if (std::find(clust_hk_map_[cluster].begin(), clust_hk_map_[cluster].end(), std::make_pair(idx, rw)) == clust_hk_map_[cluster].end()) {
+      clust_hk_map_[cluster].emplace_back(std::make_pair(idx, rw));
+      std::cout << "added hot key: " << key << " cluster: " << cluster << " rw: " << rw << " idx: " << idx << std::endl;
+    }
+  }
+
+  std::pair<uint32_t, std::string> AddReadVersion(const std::string& key, const uint32_t id) {
+    std::cout << "AddReadVersion: " << key << " id: " << id << std::endl;
+    uint32_t idx = key_to_int_map_[key];
+    std::pair<uint32_t, std::string> rp = std::make_pair(0, "");
+    versions_mutexes_[idx].lock();
+
+    read_versions_[key].emplace_back(id);
+    highest_rv_[key] = std::max(id, highest_rv_[key]);
+
+    if (write_versions_[key].size() != 0) {
+      rp.first = write_versions_[key][write_versions_[key].size() - 1].first;
+      rp.second = write_versions_[key][write_versions_[key].size() - 1].second.data();
+      // rp = &(write_versions_[key][write_versions_[key].size() - 1]);
+    }
+
+    versions_mutexes_[idx].unlock();
+
+    return rp;
+  }
+
+  bool AddWriteVersion(const std::string& key, const Slice& value, const uint32_t id) {
+    std::cout << "AddWriteVersion: " << key << " id: " << id << " highest_rv_[key]: " << highest_rv_[key] << std::endl;
+    uint32_t idx = key_to_int_map_[key];
+    bool success = true;
+    versions_mutexes_[idx].lock();
+
+    if (highest_rv_[key] > id) {
+      success = false;
+    } else {
+      write_versions_[key].emplace_back(std::make_pair(id, value));
+    }
+
+    versions_mutexes_[idx].unlock();
+
+    return success;
+  }
+
+  Status TScheduleImpl(uint16_t cluster, Transaction* txn) {
+    sys_mutex_.lock();
+
+    last_index_++;
+    txn->SetIndex(last_index_);
+    ongoing_map_[txn->GetIndex()] = std::vector<uint32_t>();
+    ongoing_txns_map_[txn->GetIndex()] = txn;
+    // hk_txns_map_[txn->GetIndex()] = txn;
+    // std::cout << "hk_txns_map_.size(): " << hk_txns_map_.size() << " txn: " << txn->GetIndex() << std::endl;
+
+    // TODO(accheng): get hot keys from cluster
+    if (cluster != 0) {
+      std::cout << "cluster: " << cluster << " txn: " << txn->GetIndex() << std::endl;
+
+      for (auto p : clust_hk_map_[cluster]) {
+        if (p.second == 0) {
+          std::cout << "INSERtiNG read cluster: " << cluster << " key: " << p.first << " id: " << txn->GetIndex() << std::endl;
+          ex_hk_reads_[p.first].insert(txn->GetIndex());
+        } else {
+          std::cout << "INSERtiNG RW cluster: " << cluster << " key: " << p.first << " id: " << txn->GetIndex() << std::endl;
+          ex_hk_rws_[p.first].insert(txn->GetIndex());
+        }
+      }
+    }
+
+    sys_mutex_.unlock();
+
+    return Status::OK();
+  }
+
+  void ClearReadVersion(const std::string& key, const uint32_t id) {
+    uint32_t idx = key_to_int_map_[key];
+    versions_mutexes_[idx].lock();
+
+    read_versions_[key].erase(std::remove(read_versions_[key].begin(), read_versions_[key].end(), id));
+
+    versions_mutexes_[idx].unlock();
+  }
+
+  void ClearWriteVersion(const std::string& key, const Slice& value, const uint32_t id) {
+    uint32_t idx = key_to_int_map_[key];
+    versions_mutexes_[idx].lock();
+
+    write_versions_[key].erase(std::remove(write_versions_[key].begin(), write_versions_[key].end(), std::make_pair(id, value)));
+
+    versions_mutexes_[idx].unlock();
+  }
+
+  void CheckCommitVersions(Transaction* txn) {
+    std::cout << "CheckCommitVersions" << std::endl;
+    // check if dep on any ongoing txns --> is ongoing txn in ongoing_txns set?
+    // wait on txns if so
+    auto txn_rv = txn->GetReadVersions();
+    for (auto it = txn_rv.begin(); it != txn_rv.end(); it++) {
+      sys_mutex_.lock();
+      if (auto s = ongoing_map_.find(it->second); s != ongoing_map_.end()) {
+        ongoing_map_[it->second].emplace_back(txn->GetIndex());
+        sys_mutex_.unlock();
+        queue_trx(txn);
+      } else {
+        sys_mutex_.unlock();
+      }
+    }
+  }
+
+  void CleanVersions(Transaction* txn, bool abort) {
+    std::cout << "CleanVersions abort:" << abort << std::endl;
+    txn->SetAbort(abort || txn->GetAbort());
+
+    // TODO(accheng): don't need sys_mutex lock?
+    // clear read and write versions
+    auto txn_rv = txn->GetReadVersions();
+    for (auto it = txn_rv.begin(); it != txn_rv.end(); it++) {
+      ClearReadVersion(it->first, txn->GetIndex());
+    }
+
+    auto txn_wv = txn->GetWriteValues();
+    for (auto it = txn_wv.begin(); it != txn_wv.end(); it++) {
+      ClearWriteVersion(it->first, it->second, txn->GetIndex());
+    }
+
+    if (ongoing_map_.find(txn->GetIndex()) == ongoing_map_.end()) {
+      return;
+    }
+
+    // release semaphore for this txn to free any deps
+    sys_mutex_.lock();
+    for (uint32_t id : ongoing_map_[txn->GetIndex()]) {
+      // std::cout << "commit ongoing_map: " << id <<  " txn: " << txn->GetIndex() << std::endl;
+      ongoing_txns_map_[id]->SetAbort(txn->GetAbort());
+      ongoing_txns_map_[id]->ReleaseCV();
+    }
+    ongoing_map_.erase(txn->GetIndex()); // ongoing_map_.find(txn->GetIndex()), ongoing_map_.end());
+    ongoing_txns_map_.erase(txn->GetIndex()); // ongoing_txns_map_.find(txn->GetIndex()), ongoing_txns_map_.end());
+    // std::cout << "commit ongoing_txns_map_.size(): " << ongoing_txns_map_.size() << " txn: " << txn->GetIndex() << std::endl;
+    sys_mutex_.unlock();
+  }
+
  private:
   std::shared_ptr<OccLockBucketsImplBase> bucketed_locks_;
 
@@ -944,6 +1332,28 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   // Protected map of <cluster, callbacks>
   std::vector<std::mutex> cluster_hash_mutexes_;
   std::map<uint16_t, std::vector<WriteCallback *>> cluster_hash_;
+
+  std::map<uint32_t, std::vector<uint32_t>> ongoing_map_;
+  std::map<uint32_t, Transaction *> ongoing_txns_map_;
+
+  std::unordered_set<std::string> hot_keys_;
+  std::map<std::string, uint32_t> key_to_int_map_; // assign int id to each hot key
+  std::vector<std::mutex> versions_mutexes_; // locks for hot key version histories
+  std::map<std::string, std::vector<uint32_t>> read_versions_; // <hot key, id>
+  std::map<std::string, std::vector<std::pair<uint32_t, Slice>>> write_versions_; // <hot key, (id, value)>
+  std::map<std::string, uint32_t> highest_rv_; // largest known read id per hot key
+  // std::map<std::string, uint32_t> highest_wv_; // largest known write id per hot key
+
+  std::vector<std::mutex> hk_mutexes_; // locks for hot key sched structs
+  // std::map<uint32_t, Transaction *> hk_txns_map_; // <txn id, Txn*>
+  std::map<uint32_t, std::vector<uint32_t>> hk_sched_counts_; // <hot key as int, [read_sched_counts, rw_sched_counts]
+  std::map<uint32_t, std::set<uint32_t>> hk_read_queue_; // <hot key as int, [list of txn ids needing to read queued]
+  std::map<uint32_t, std::set<uint32_t>> hk_rw_queue_; // <hot key as int, [list of txn ids needing to rw queued]
+  std::map<uint32_t, std::set<uint32_t>> ex_hk_reads_; // <hot key as int, [list of expected reads in order]
+  std::map<uint32_t, std::set<uint32_t>> ex_hk_rws_; // <hot key as int, [list of expected rws in order]
+
+  // TODO(accheng): need to manually initialize
+  std::map<uint16_t, std::vector<std::pair<uint32_t, uint16_t>>> clust_hk_map_; // <cluster, [(hot key as int, r or r/w)]
 
   // // protected by sys_mutex
   // uint32_t max_queue_len_; // threshold on batch size

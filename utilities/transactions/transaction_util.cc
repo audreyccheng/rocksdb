@@ -7,6 +7,7 @@
 #include "utilities/transactions/transaction_util.h"
 
 #include <cinttypes>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,7 @@
 #include "rocksdb/utilities/write_batch_with_index.h"
 #include "util/cast_util.h"
 #include "util/string_util.h"
+#include "utilities/transactions/optimistic_transaction_db_impl.h"
 
 namespace ROCKSDB_NAMESPACE {
 
@@ -149,10 +151,13 @@ Status TransactionUtil::CheckKey(DBImpl* db_impl, SuperVersion* sv,
   return result;
 }
 
-Status TransactionUtil::CheckKeysForConflicts(DBImpl* db_impl,
+Status TransactionUtil::CheckKeysForConflicts(DBImpl* db_impl, OptimisticTransactionDB* txn_db_,
                                               const LockTracker& tracker,
                                               bool cache_only) {
   Status result;
+
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
 
   std::unique_ptr<LockTracker::ColumnFamilyIterator> cf_it(
       tracker.GetColumnFamilyIterator());
@@ -185,6 +190,15 @@ Status TransactionUtil::CheckKeysForConflicts(DBImpl* db_impl,
       // transactions.
       result = CheckKey(db_impl, sv, earliest_seq, key_seq, key,
                         /*read_ts=*/nullptr, cache_only);
+
+      // skip validation on hot keys
+      // std::cout << "Checking hot key: " << key << std::endl;
+      if (txn_db_impl->CheckHotKey(key)) { // TODO(accheng): make sure this hot key was actually accessed by this txn
+        std::cout << "Hot key skipping validation" << std::endl;
+        result = Status::OK();
+        // continue;
+      }
+
       if (!result.ok()) {
         break;
       }
@@ -201,4 +215,3 @@ Status TransactionUtil::CheckKeysForConflicts(DBImpl* db_impl,
 }
 
 }  // namespace ROCKSDB_NAMESPACE
-

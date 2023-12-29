@@ -94,8 +94,13 @@ void TransactionBaseImpl::Clear() {
   num_merges_ = 0;
 
   cluster_ = 0;
-  // index_ = 0;
+  index_ = 0;
   ready_ = false;
+  abort_ = false;
+
+  read_versions_.clear();
+  read_values_.clear();
+  write_values_.clear();
 
   if (dbimpl_->allow_2pc()) {
     InitWriteBatch();
