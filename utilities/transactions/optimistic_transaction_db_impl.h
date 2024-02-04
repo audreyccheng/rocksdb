@@ -1217,12 +1217,12 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   bool ReserveRead(Transaction* txn, const std::string& key) {
     if (auto s = read_ts_.find(key); s == read_ts_.end()) {
-      read_ts_[k] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
+      read_ts_[key] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
     } else {
-      if (read_ts_[k].first < txn->GetEpoch()) {
-        read_ts_[k] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
+      if (read_ts_[key].first < txn->GetEpoch()) {
+        read_ts_[key] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
       } else {
-        if (read_ts_[k].second < txn->GetIndex()) {
+        if (read_ts_[key].second < txn->GetIndex()) {
           return false;
         }
       }
@@ -1232,12 +1232,12 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   bool ReserveWrite(Transaction* txn, const std::string& key) {
     if (auto s = write_ts_.find(key); s == write_ts_.end()) {
-      write_ts_[k] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
+      write_ts_[key] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
     } else {
-      if (write_ts_[k].first < txn->GetEpoch()) {
-        write_ts_[k] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
+      if (write_ts_[key].first < txn->GetEpoch()) {
+        write_ts_[key] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
       } else {
-        if (write_ts_[k].second < txn->GetIndex()) {
+        if (write_ts_[key].second < txn->GetIndex()) {
           return false;
         }
       }
