@@ -103,7 +103,7 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
   // int key_val = stoi(key_byte.substr(0,15));
   // std::string key_str = std::to_string(key_val);
   std::cout << "Get key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
-  bool get_success = false;
+  // bool get_success = false;
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
 
@@ -151,7 +151,7 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
     txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
     this->AddHK(key_str);
   }
-  this->AddRW(key_str);
+  this->AddRS(key_str);
 
   // std::cout << "DONE queueing GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   // if (txn_db_impl->CheckHotKey(key_str)) {
