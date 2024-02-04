@@ -89,7 +89,7 @@ Status OptimisticTransaction::Schedule(int type) {
   uint16_t cluster = (uint16_t) type;
   this->SetCluster(cluster);
 
-  Status s = txn_db_impl->TScheduleImpl(cluster, this);
+  Status s = txn_db_impl->AScheduleImpl(this);
 
   return s;
 }
@@ -117,40 +117,19 @@ Status OptimisticTransaction::GetKey(const ReadOptions& options, const Slice& ke
       txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 0 /* rw */, this);
     }
 
-    auto rp = txn_db_impl->AddReadVersion(key_str, this->index_); // if id == 0, fetch from DB
-    if (rp.first != 0) {
-      get_success = true;
-      this->read_versions_[key_str] = rp.first;
-      this->read_values_[key_str] = rp.second;
-      value->assign(this->read_values_[key_str].c_str(), this->read_values_[key_str].length());
-      // std::cout << "Getkey: " << key_str
-      // << " rp.second size: " << rp.second.length()
-      // << " rvalue size: " << this->read_values_[key_str].length()
-      // << " value size: " << value->length()
-      // << std::endl;
-    }
-    // else {
-    //   std::string empty("");
-    //   value->assign(empty.c_str(), empty.length());
-    //   std::cout << "NO VALUE GetForUpdate key: " << key_str << std::endl;
-    //   // return Status::Busy();
-    // }
+    this->AddRW(key_str);
 
     // if (this->GetCluster() != 0) {
     //   txn_db_impl->KeySubCount(key_str, 0 /* rw */, this->GetIndex());
     // }
-  // }
+
   // std::cout << "Get DONE key: " << key_str  << " tid: " << this->GetIndex() << std::endl;
     if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
       txn_db_impl->KeySubCount(key_str, 0 /* rw */, this->GetIndex());
     }
 
-  // // still call Get to get the right lock
+  // read from snapshot
   auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
-  if (get_success) {
-    std::string temp_value;
-    return txn_impl->Get(options, key, &temp_value);
-  }
   return txn_impl->Get(options, key, value);
 }
 
@@ -172,6 +151,8 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
     txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
     this->AddHK(key_str);
   }
+  this->AddRW(key_str);
+
   // std::cout << "DONE queueing GetForUpdate key: " << key_str << " tid: " << this->GetIndex() << std::endl;
   // if (txn_db_impl->CheckHotKey(key_str)) {
     // std::cout << "GetForUpdate HOT key: " << key_str << std::endl;
@@ -179,33 +160,10 @@ Status OptimisticTransaction::GetForUpdateKey(const ReadOptions& options, const 
     //   txn_db_impl->ScheduleKey(this->GetCluster(), key_str, 1 /* rw */, this);
     // }
 
-    auto rp = txn_db_impl->AddReadForWriteVersion(key_str, this->index_, this); // if id == 0, fetch from DB
-    if (rp.first != 0) {
-      get_success = true;
-      this->read_versions_[key_str] = rp.first;
-      this->read_values_[key_str] = rp.second;
-      value->assign(this->read_values_[key_str].c_str(), this->read_values_[key_str].length());
-      // std::cout << "GetForUpdate key: " << key_str
-      // << " rp.second size: " << rp.second.length()
-      // << " rvalue size: " << this->read_values_[key_str].length()
-      // << " value size: " << value->length()
-      // << std::endl;
-    }
-    // else {
-    //   std::string empty("");
-    //   value->assign(empty.c_str(), empty.length());
-    //   std::cout << "NO VALUE GetForUpdate key: " << key_str << std::endl;
-    //   // return Status::Busy();
-    // }
-  // }
   // std::cout << "GetForUpdate DONE key: " << key_str << " tid: " << this->GetIndex() << std::endl;
 
   // still call Get to get the right lock
   auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
-  if (get_success && value->length() > 0) {
-    std::string temp_value;
-    return txn_impl->GetForUpdate(options, key, &temp_value, exclusive, do_validate);
-  }
   return txn_impl->GetForUpdate(options, key, value, exclusive, do_validate);
 }
 
@@ -221,57 +179,44 @@ Status OptimisticTransaction::PutKey(const Slice& key, const Slice& value) {
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
   bool put_success = false;
-  // if (txn_db_impl->CheckHotKey(key_str)) {
-    // std::cout << "Put HOT key: " << key_str << " val_size:" << value.size() << std::endl;
-    if (txn_db_impl->AddWriteVersion(key_str, value, this->index_, this)) {
-      put_success = true;
-      size_t len = value.size();
-      char* val = new char[len];
-      strcpy(val, value.data());
-      std::string val_str(val, len);
-      this->write_values_[key_str] = val_str;
-      // std::cout << "SL Putkey: " << key_str << " val_size:" << this->write_values_[key_str].length() << std::endl;
-    }
+  this->write_values_[key_str] = val_str; 
 
-    if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
-      txn_db_impl->KeySubCount(key_str, 1 /* rw */, this->GetIndex());
-      this->RemoveHK(key_str);
-    }
-
-    if (!put_success) {
-      // std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
-      return Status::Busy();
-    }
-
-    // if (this->GetCluster() != 0) {
+    // if (txn_db_impl->CheckHotKey(key_str) && this->GetCluster() != 0) {
     //   txn_db_impl->KeySubCount(key_str, 1 /* rw */, this->GetIndex());
+    //   this->RemoveHK(key_str);
     // }
-  // }
+
+    // if (!put_success) {
+    //   // std::cout << "MVTSO Write fail! key: " << key_str << std::endl;
+    //   return Status::Busy();
+    // }
 
   // std::cout << "Put DONE key: " << key_str << " tid: " << this->GetIndex() << std::endl;
 
-  auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
-  return txn_impl->Put(key, value);
+  // auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
+  // return txn_impl->Put(key, value);
+
+  return Status::OK();
 }
 
-Status OptimisticTransaction::DeleteKey(const Slice& key) {
-  // std::string key_byte(key.data());
-  // uint64_t key_val = (uint64_t) stoi(key_byte);
-  // std::string key_str = std::to_string(key_val);
-  // auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
-  //                                           OptimisticTransactionDB>(txn_db_);
-  // // std::cout << "Delete HOT key: " << key_str << std::endl;
-  //   if (txn_db_impl->AddWriteVersion(key_str, Slice(), this->index_)) {
-  //     this->write_values_[key_str] = "";
-  //     // std::cout << "SL Deletekey: " << key_str << " val_size:" << this->write_values_[key_str].length() << std::endl;
-  //   } else {
-  //     // std::cout << "MVTSO Delete fail! key: " << key_str << std::endl;
-  //     return Status::Busy();
-  //   }
+// Status OptimisticTransaction::DeleteKey(const Slice& key) {
+//   // std::string key_byte(key.data());
+//   // uint64_t key_val = (uint64_t) stoi(key_byte);
+//   // std::string key_str = std::to_string(key_val);
+//   // auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+//   //                                           OptimisticTransactionDB>(txn_db_);
+//   // // std::cout << "Delete HOT key: " << key_str << std::endl;
+//   //   if (txn_db_impl->AddWriteVersion(key_str, Slice(), this->index_)) {
+//   //     this->write_values_[key_str] = "";
+//   //     // std::cout << "SL Deletekey: " << key_str << " val_size:" << this->write_values_[key_str].length() << std::endl;
+//   //   } else {
+//   //     // std::cout << "MVTSO Delete fail! key: " << key_str << std::endl;
+//   //     return Status::Busy();
+//   //   }
 
-  auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
-  return txn_impl->Delete(key);
-}
+//   auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
+//   return txn_impl->Delete(key);
+// }
 
 Status OptimisticTransaction::LoadHotKey(const Slice& key, const Slice& value, bool isReadWrite) {
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
@@ -385,26 +330,28 @@ Status OptimisticTransaction::Commit() {
                                             OptimisticTransactionDB>(txn_db_);
   assert(txn_db_impl);
 
-  txn_db_impl->CheckCommitVersions(this);
-  txn_db_impl->CleanVersions(this, false);
-
-  if (this->GetAbort()) {
-    return Status::Busy();
+  bool success = txn_db_impl->SetReservationsAndCommit(this);
+  if (success) {
+    auto txn_impl = reinterpret_cast<TransactionBaseImpl*>(this);
+    
+    auto txn_wv = this->GetWriteValues();
+    for (auto it = txn_wv.begin(); it != txn_wv.end(); it++) {
+      txn_impl->Put(it->first, it->second);
+    }
   }
-
   Status s = Status::OK();
-  switch (txn_db_impl->GetValidatePolicy()) {
-    case OccValidationPolicy::kValidateParallel:
-      s = CommitWithParallelValidate();
-      break;
-    case OccValidationPolicy::kValidateSerial:
-      s = CommitWithSerialValidate();
-      break;
-    default:
-      s = CommitWithParallelValidate();
-      break;
-      // assert(0);
-  }
+  // switch (txn_db_impl->GetValidatePolicy()) {
+  //   case OccValidationPolicy::kValidateParallel:
+  //     s = CommitWithParallelValidate();
+  //     break;
+  //   case OccValidationPolicy::kValidateSerial:
+  //     s = CommitWithSerialValidate();
+  //     break;
+  //   default:
+  //     s = CommitWithParallelValidate();
+  //     break;
+  //     // assert(0);
+  // }
 
   // unreachable, just void compiler complain
   return s;

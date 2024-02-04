@@ -637,9 +637,25 @@ class Transaction {
 
   virtual uint32_t GetIndex() const { return index_; }
 
+  virtual void SetEpoch(uint32_t epoch) { epoch_ = epoch; }
+
+  virtual uint32_t GetEpoch() const { return epoch_; }
+
   virtual void SetAbort(bool abort) { abort_ = abort; }
 
   virtual bool GetAbort() const { return abort_; }
+
+  virtual void SetWAW(bool waw) { waw_ = waw; }
+
+  virtual bool GetWAW() const { return waw_; }
+
+  virtual void SetWAR(bool war) { war_ = war; }
+
+  virtual bool GetWAR() const { return war_; }
+
+  virtual void SetRAW(bool raw) { raw_ = raw; }
+
+  virtual bool GetRAW() const { return raw_; }
 
   virtual const std::map<std::string, uint32_t> & GetReadVersions() const { return read_versions_; }
 
@@ -652,6 +668,12 @@ class Transaction {
   virtual void SetCommitWait(bool commit_wait) { commit_wait_ = commit_wait; }
 
   virtual bool GetCommitWait() const { return commit_wait_; }
+
+  virtual const std::unordered_set<std::string> & GetReadSet() const { return read_set_; }
+
+  virtual void AddRS(const std::string &key) { read_set_.insert(key); }
+
+  virtual void ClearReadSet() { read_set_.clear(); }
 
   virtual const std::unordered_set<std::string> & GetHotKeys() const { return hot_keys_; }
 
@@ -776,8 +798,14 @@ class Transaction {
   // scheduling index
   uint32_t index_ = 0;
 
+  uint32_t epoch_ = 0;
+  bool waw_ = false;
+  bool war_ = false;
+  bool raw_ = false;
+
   bool abort_ = false;
 
+  std::unordered_set<std::string> read_set_;
   std::map<std::string, uint32_t> read_versions_;
   std::map<std::string, std::string> read_values_;
   std::map<std::string, std::string> write_values_;

@@ -101,6 +101,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     // new (&sched_callbacks_)(decltype(sched_callbacks_))();
 
     last_index_ = 0;
+    last_epoch_ = 0;
+    ecount_ = 0;
 
     // new (&ongoing_txns_)(decltype(ongoing_txns_))();
 
@@ -1083,6 +1085,23 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     return success;
   }
 
+  Status AScheduleImpl(Transaction* txn) {
+    sys_mutex_.lock();
+    last_index_++;
+    txn->SetIndex(last_index_);
+    ongoing_map_[txn->GetIndex()] = std::vector<uint32_t>();
+    ongoing_txns_map_[txn->GetIndex()] = txn;
+    txn->SetEpoch(last_epoch_);
+    ecount_++;
+    if (ecount_ > 100) {
+      ecount_ = 0;
+      last_epoch_++;
+    }
+    sys_mutex_.unlock();
+
+    return Status::OK();
+  }
+
   Status TScheduleImpl(uint16_t cluster, Transaction* txn) {
     sys_mutex_.lock();
     last_index_++;
@@ -1113,8 +1132,6 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
         hk_mutexes_[p.first].unlock();
       }
     }
-
-
 
     return Status::OK();
   }
@@ -1196,6 +1213,93 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     // if (max_id != 0 && txn->GetIndex() - max_id < 10) { //{//}
     //   queue_trx(txn);
     // }
+  }
+
+  bool ReserveRead(Transaction* txn, const std::string& key) {
+    if (auto s = read_ts_.find(key); s == read_ts_.end()) {
+      read_ts_[k] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
+    } else {
+      if (read_ts_[k].first < txn->GetEpoch()) {
+        read_ts_[k] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
+      } else {
+        if (read_ts_[k].second < txn->GetIndex()) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  bool ReserveWrite(Transaction* txn, const std::string& key) {
+    if (auto s = write_ts_.find(key); s == write_ts_.end()) {
+      write_ts_[k] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
+    } else {
+      if (write_ts_[k].first < txn->GetEpoch()) {
+        write_ts_[k] = std::make_pair(txn->GetEpoch(), txn->GetIndex());
+      } else {
+        if (write_ts_[k].second < txn->GetIndex()) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  void AnalyzeDeps(Transaction* txn) {
+    for (const std::string& k : txn->GetReadSet()) {
+      if (write_ts_[k].first == txn->GetEpoch() && write_ts_[k].second < txn->GetIndex()) {
+        txn->SetRAW(true);
+        return;
+      }
+    }
+
+    auto txn_wv = txn->GetWriteValues();
+    for (auto it = txn_wv.begin(); it != txn_wv.end(); it++) {
+      if (read_ts_[it->first].first == txn->GetEpoch() && read_ts_[it->first].second < txn->GetIndex()) {
+        txn->SetWAR(true);
+      }
+
+      if (write_ts_[it->first].first == txn->GetEpoch() && write_ts_[it->first].second < txn->GetIndex()) {
+        txn->SetWAW(true);
+      }
+    }
+  }
+
+  bool CommitAll(Transaction* txn) {
+    if (txn->GetWAW()) {
+      return false;
+    }
+
+    if (!txn->GetWAR() || !txn->GetRAW()) {
+      return true;
+    } else {
+      return false;
+    }
+
+    if (txn->GetRAW()) {
+      return false;
+    }
+    return true;
+  }
+
+  bool SetReservationsAndCommit(Transaction* txn) {
+    bool success = true;
+    for (const std::string& k : txn->GetReadSet()) {
+      success &= ReserveRead(txn, k);
+    }
+
+    auto txn_wv = txn->GetWriteValues();
+    for (auto it = txn_wv.begin(); it != txn_wv.end(); it++) {
+      success &= ReserveWrite(txn, it->first);
+    }
+
+    AnalyzeDeps(txn);
+
+    if (success) {
+      return CommitAll(txn);
+    } else {
+      return false;
+    }
   }
 
   void CleanVersions(Transaction* txn, bool abort) {
@@ -1545,6 +1649,11 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   std::map<std::string, uint32_t> highest_rv_; // largest known read id per hot key
   // std::map<std::string, uint32_t> highest_wv_; // largest known write id per hot key
 
+  uint32_t last_epoch_;
+  uint32_t ecount_;
+  std::map<std::string, std::pair<uint32_t, uint32_t>> read_ts_;
+  std::map<std::string, std::pair<uint32_t, uint32_t>> write_ts_;
+  
   std::unordered_set<std::string> hot_keys_;
   std::map<std::string, uint32_t> hk_to_int_map_; // assign int id to each hot key
 
@@ -1565,6 +1674,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   // std::vector<WriteCallback *> sched_callbacks_; // corresponding callbacks
 
   uint32_t last_index_;
+
   // std::map<uint32_t, Transaction *> txn_map_; // <index, txn>
   // std::map<uint32_t, WriteCallback *> callback_map_; // <index, callback>
   // std::vector<uint32_t> ongoing_txns_; // txns ordered by index
