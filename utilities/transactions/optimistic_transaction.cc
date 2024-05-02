@@ -81,6 +81,28 @@ Status OptimisticTransaction::Schedule(int type) {
   return s;
 }
 
+Status OptimisticTransaction::ScheduleFair(int type, int appId) {
+  // Set up callback which will schedule this transaction.
+  OptimisticScheduleCallback callback(this);
+
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
+  assert(txn_db_impl);
+
+  uint16_t cluster = (uint16_t) type;
+  this->SetCluster(cluster);
+
+  uint16_t uappId = (uint16_t) appId;
+  this->SetAppId(uappId);
+
+  Status s = txn_db_impl->NewScheduleImplFair(cluster, uappId, this, &callback);
+
+  this->SetStartTime();
+  // std::cout<< "ScheduleFair cluster:" << cluster << " app" << uappId-1;
+
+  return s;
+}
+
 // Status OptimisticTransaction::KeySchedule(int type, const std::vector<std::string>& keys) {
 //   // Set up callback which will schedule this transaction
 //   OptimisticScheduleCallback callback(this);
@@ -169,6 +191,19 @@ void OptimisticTransaction::FreeLock() {
   }
 }
 
+void OptimisticTransaction::FreeLockFair() {
+  auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
+                                            OptimisticTransactionDB>(txn_db_);
+  assert(txn_db_impl);
+
+  std::cout << "FreeLockFair cluster: " << this->GetCluster() << " appId: " << (this->GetAppId() - 1) << std::endl;
+  if (this->GetCluster() != 0) { // (this->GetAppId() != 0) { // TBU
+    txn_db_impl->NewSubCountFair(this->GetCluster(), this->GetAppId(), this->GetEndTime());
+    this->SetCluster(0);
+    this->SetAppId(0);
+  }
+}
+
 Status OptimisticTransaction::Commit() {
   auto txn_db_impl = static_cast_with_check<OptimisticTransactionDBImpl,
                                             OptimisticTransactionDB>(txn_db_);
@@ -202,7 +237,8 @@ Status OptimisticTransaction::CommitWithSerialValidate() {
   Status s = db_impl->WriteWithCallback(
       write_options_, GetWriteBatch()->GetWriteBatch(), &callback);
 
-  FreeLock();
+  // FreeLock();
+  FreeLockFair();
   if (s.ok()) {
     Clear();
   }
@@ -256,12 +292,14 @@ Status OptimisticTransaction::CommitWithParallelValidate() {
   Status s = TransactionUtil::CheckKeysForConflicts(db_impl, *tracked_locks_,
                                                     true /* cache_only */);
   if (!s.ok()) {
-    FreeLock();
+    // FreeLock();
+    FreeLockFair();
     return s;
   }
 
   s = db_impl->Write(write_options_, GetWriteBatch()->GetWriteBatch());
-  FreeLock();
+  // FreeLock();
+  FreeLockFair();
   if (s.ok()) {
     Clear();
   }
@@ -274,7 +312,8 @@ Status OptimisticTransaction::Rollback() {
   //                                           OptimisticTransactionDB>(txn_db_);
   // assert(txn_db_impl);
 
-  FreeLock();
+  // FreeLock();
+  FreeLockFair();
   // // TODO(accheng): update sched_counts_
   // if (this->GetCluster() != 0) {
   //   std::cout << "rolling back cluster: " << this->GetCluster() << std::endl; // <<  " count: " << sched_counts_[this->GetCluster()]->load()

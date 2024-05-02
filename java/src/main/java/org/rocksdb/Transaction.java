@@ -183,6 +183,14 @@ public class Transaction extends RocksObject {
   }
 
   /**
+   * Schedule the current transaction fairly
+   */
+  public void scheduleFair(final int type, final int appId) throws RocksDBException {
+    assert(isOwningHandle());
+    scheduleFair(nativeHandle_, type, appId);
+  }
+
+  /**
    * Prepare the current transaction for 2PC
    */
   public void prepare() throws RocksDBException {
@@ -2061,6 +2069,7 @@ public class Transaction extends RocksObject {
   private native long getSnapshot(final long handle);
   private native void clearSnapshot(final long handle);
   private native void schedule(final long handle, final int type) throws RocksDBException;
+  private native void scheduleFair(final long handle, final int type, final int appId) throws RocksDBException;
   private native void prepare(final long handle) throws RocksDBException;
   private native void commit(final long handle) throws RocksDBException;
   private native void rollback(final long handle) throws RocksDBException;

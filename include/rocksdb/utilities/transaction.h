@@ -5,7 +5,7 @@
 
 #pragma once
 
-
+#include <chrono>
 #include <limits>
 #include <string>
 #include <vector>
@@ -219,6 +219,8 @@ class Transaction {
 
   // Schedule transaction per key
   // virtual Status KeySchedule(int type, const std::vector<std::string>& keys) = 0;
+
+  virtual Status ScheduleFair(int type, int appId) = 0;
 
   // Prepare the current transaction for 2PC
   virtual Status Prepare() = 0;
@@ -620,6 +622,14 @@ class Transaction {
 
   virtual uint16_t GetCluster() const { return cluster_; }
 
+  virtual void SetAppId(uint16_t appId) { appId_ = appId; }
+
+  virtual uint16_t GetAppId() const { return appId_; }
+
+  virtual void SetStartTime() { start_time_ = std::chrono::high_resolution_clock::now(); }
+
+  virtual long GetEndTime() const { return std::chrono::duration_cast<std::chrono::milliseconds>(start_time_.time_since_epoch()).count(); }
+
   // virtual void SetIndex(uint32_t index) { index_ = index; }
 
   // virtual uint32_t GetIndex() const { return index_; }
@@ -702,6 +712,9 @@ class Transaction {
 
   // cluster id
   uint16_t cluster_ = 0;
+
+  uint16_t appId_ = 0;
+  std::chrono::high_resolution_clock::time_point start_time_;
 
   // scheduling index
   // uint32_t index_ = 0;

@@ -84,10 +84,27 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       p = std::make_unique<std::atomic<int>>(0);
     }
 
+    num_clients_ = 2;
+    new (&app_vt_)(decltype(app_vt_))();
+    app_vt_.resize(num_clients_);
+    new (&virtual_times_)(decltype(virtual_times_))();
+    for (int i = 0; i < num_clients_ + 1; ++i) {
+      app_vt_[i] = i;
+      virtual_times_[i] = i;
+    }
+
     std::vector<std::mutex> temp(num_clusters_ + 1);
     cluster_hash_mutexes_.swap(temp);
     for (int i = 0; i < num_clusters_ + 1; ++i) {
       cluster_hash_[i] = std::vector<WriteCallback *>();
+      cluster_hash_fair_[i] = 0;
+    }
+
+    for (int j = 0; j < num_clients_; ++j) {
+       cluster_hash_clients_[j] = std::map<uint16_t, std::vector<WriteCallback *>>();
+      for (int i = 0; i < num_clusters_ + 1; ++i) {
+        cluster_hash_clients_[j][i] = std::vector<WriteCallback *>();
+      }
     }
 
     // // TODO(accheng): currently hardcoded
@@ -192,6 +209,13 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   bool lock_clust_peek(uint16_t cluster) {
     cluster_hash_mutexes_[cluster].lock();
     bool queued = (cluster_hash_[cluster].size() > 0);
+    cluster_hash_mutexes_[cluster].unlock();
+    return queued;
+  }
+
+  bool lock_clust_peek_fair(uint16_t cluster) {
+    cluster_hash_mutexes_[cluster].lock();
+    bool queued = (cluster_hash_fair_[cluster] > 0);
     cluster_hash_mutexes_[cluster].unlock();
     return queued;
   }
@@ -484,6 +508,13 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     // cluster_hash_mutexes_[cluster].unlock();
   }
 
+  void queue_clust_key_fair(uint16_t cluster, uint16_t appId, WriteCallback* callback) {
+    // cluster_hash_mutexes_[cluster].lock();
+    cluster_hash_fair_[cluster]++;
+    cluster_hash_clients_[appId-1][cluster].push_back(callback);
+    // cluster_hash_mutexes_[cluster].unlock();
+  }
+
   // void print_size() {
   //   int total = 0;
   //   for (int i = 1; i < 41; i++) {
@@ -698,6 +729,124 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
       key_release_next_clust(cluster);
     } else {
       key_partial_release_next_clust(cluster);
+    }
+
+    sys_mutex_.unlock();
+  }
+
+  bool check_turn(uint16_t appId) { // TBU to account for delta
+    if (appId != 0) {
+      uint16_t appIdIndex = appId - 1;
+      if (appIdIndex == virtual_times_.begin()->second){ // check if this app has the lowest vt
+        return true;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Status NewScheduleImplFair(uint16_t cluster, uint16_t appId, Transaction* txn, WriteCallback* callback) {
+    sys_mutex_.lock();
+    if (check_ongoing_key(cluster) && !lock_clust_peek_fair(cluster)) { // && check_turn(appId)
+
+      sched_counts_[cluster]->fetch_add(1);
+      std::cout << "1-run cluster: " << cluster << " appId: " << (appId-1) << std::endl;
+
+      sys_mutex_.unlock();
+      return Status::OK();
+    } else {
+
+      std::cout << "2-queueing cluster: " << cluster << " appId: " << (appId-1) << std::endl;
+      queue_clust_key_fair(cluster, appId, callback);
+
+      sys_mutex_.unlock();
+      return queue_trx(txn);
+    }
+  }
+
+  bool release_clust_fair(uint16_t idx) {
+    if (cluster_hash_fair_[idx] != 0) {
+      sched_counts_[idx]->fetch_add(1);
+
+      for (const auto& it : virtual_times_) {
+        uint16_t appId = it.second - 1;
+        std::cout << "iterating release_clust_fair cluster: " << idx << " appId: " << appId
+                  << " queued: " << cluster_hash_clients_[appId][idx].size() << std::endl;
+        if (cluster_hash_clients_[appId][idx].size() > 0) {
+          cluster_hash_clients_[appId][idx][0]->Callback(this);
+          cluster_hash_clients_[appId][idx].erase(cluster_hash_clients_[appId][idx].begin());
+          cluster_hash_fair_[idx]--;
+          std::cout << "release_clust_fair cluster: " << idx << " appId: " << appId << std::endl;
+          break;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  void key_release_next_clust_fair(uint16_t cluster) {
+    std::cout << "key_release_next_clust_fair cluster: " << cluster << std::endl;
+    if (cluster > 100) {
+      int idx100 = cluster % 100;
+      // int total = 0;
+      for (uint16_t i = 0; i < 10; i++) {
+        size_t idx = i + (idx100 - 1) * 10 + 1;
+        // total += cluster_hash_[idx].size();
+        release_clust_fair(idx);
+      }
+      // std::cout << "total staring from: " << (idx100 - 1) * 10 + 1 << " is: " << total << std::endl;
+    } else {
+      size_t p_idx = find_p_idx(cluster);
+      // std::cout << "total for: " << p_idx << " is: " << cluster_hash_[p_idx].size() << std::endl;
+      if (check_ongoing_key(p_idx)) {
+        release_clust_fair(p_idx);
+      }
+    }
+  }
+
+  void key_partial_release_next_clust_fair(uint16_t cluster) {
+    std::cout << "key_partial_release_next_clust_fair cluster: " << cluster << std::endl;
+    if (cluster > 100) {
+      if (sched_counts_[cluster]->load() == 0) {
+        release_clust_fair(cluster);
+      }
+    } else {
+      size_t p_idx = find_p_idx(cluster);
+      if (cluster_hash_fair_[p_idx] == 0) {
+        if (sched_counts_[cluster]->load() == 0) {
+          release_clust_fair(cluster);
+        }
+      } else {
+        if (check_ongoing_key(p_idx)) {
+          release_clust_fair(p_idx);
+        }
+      }
+    }
+  }
+
+  void NewSubCountFair(uint16_t cluster, uint16_t appId, long usage) {
+    sys_mutex_.lock();
+
+    uint16_t appIdIndex = appId - 1;
+    long old_val = app_vt_[appIdIndex];
+    virtual_times_.erase(old_val);
+    long new_val = old_val + usage;
+    while (virtual_times_.find(new_val) != virtual_times_.end()) {
+      new_val++;
+    }
+    app_vt_[appIdIndex] = new_val;
+    virtual_times_[new_val] = appIdIndex;
+    std::cout << "NewSubCountFair cluster: " << cluster << " appId: " << appIdIndex
+              << " usage: " << usage << " new_total: " << new_val << std::endl;
+
+    sched_counts_[cluster]->fetch_sub(1);
+
+    if (cluster_hash_fair_[cluster] == 0) { // sched_counts_[cluster]->load() == 0
+      key_release_next_clust_fair(cluster);
+    } else {
+      key_partial_release_next_clust_fair(cluster);
     }
 
     sys_mutex_.unlock();
@@ -941,9 +1090,16 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
   std::vector<uint16_t> cluster_sched_;
   std::vector<std::unique_ptr<std::atomic_int>> sched_counts_;
 
+  uint16_t num_clients_;
+  std::vector<long> app_vt_; // <appId, vt>
+  std::map<uint16_t, long> virtual_times_; // <vt, appId>
+
   // Protected map of <cluster, callbacks>
   std::vector<std::mutex> cluster_hash_mutexes_;
   std::map<uint16_t, std::vector<WriteCallback *>> cluster_hash_;
+
+  std::map<uint16_t, uint16_t> cluster_hash_fair_; // <cluster, number of queued txns>
+  std::map<uint16_t, std::map<uint16_t, std::vector<WriteCallback *>>> cluster_hash_clients_;
 
   // // protected by sys_mutex
   // uint32_t max_queue_len_; // threshold on batch size

@@ -5,7 +5,7 @@
 
 #pragma once
 
-
+#include <iostream>
 #include <stack>
 #include <string>
 #include <unordered_map>
@@ -43,6 +43,8 @@ class OptimisticTransaction : public TransactionBaseImpl {
   Status Schedule(int type) override;
 
   // Status KeySchedule(int type, const std::vector<std::string>& keys) override;
+
+  Status ScheduleFair(int type, int appId) override;
 
   // using Transaction::Get;
   // Status Get(const ReadOptions& options,
@@ -88,6 +90,8 @@ class OptimisticTransaction : public TransactionBaseImpl {
 
   void FreeLock();
 
+  void FreeLockFair();
+
   void Clear() override;
 
   void UnlockGetForUpdate(ColumnFamilyHandle* /* unused */,
@@ -130,6 +134,7 @@ class OptimisticScheduleCallback : public WriteCallback {
     // TODO(accheng): after schedule successful
     auto txn_impl = reinterpret_cast<Transaction*>(txn_);
     txn_impl->ReleaseCV();
+    std::cout << "Callback cluster: " << txn_impl->GetCluster() << std::endl;
 
     return Status::OK();
   }
@@ -138,6 +143,10 @@ class OptimisticScheduleCallback : public WriteCallback {
 
   // uint16_t GetTxnCluster() {
   //   return txn_->GetCluster();
+  // }
+
+  // uint16_t GetAppId() {
+  //   return txn_->GetAppId();
   // }
 
  private:

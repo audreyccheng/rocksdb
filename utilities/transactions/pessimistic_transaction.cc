@@ -497,6 +497,15 @@ Status PessimisticTransaction::Schedule(int type) {
   return s;
 }
 
+Status PessimisticTransaction::ScheduleFair(int type, int appId) {
+  uint16_t cluster = (uint16_t) type;
+  this->SetCluster(cluster);
+
+  this->SetAppId((uint16_t) appId);
+
+  return Status::OK(); // TBU
+}
+
 // Status PessimisticTransaction::KeySchedule(int type, const std::vector<std::string>& keys) {
 //   assert(type >= 0);
 //   return Status::OK();

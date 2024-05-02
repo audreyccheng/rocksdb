@@ -100,6 +100,20 @@ void Java_org_rocksdb_Transaction_schedule(JNIEnv* env, jobject /*jobj*/,
 
 /*
  * Class:     org_rocksdb_Transaction
+ * Method:    scheduleFair
+ * Signature: (J)V
+ */
+void Java_org_rocksdb_Transaction_scheduleFair(JNIEnv* env, jobject /*jobj*/,
+                                               jlong jhandle, jint jtype, jint jappId) {
+  auto* txn = reinterpret_cast<ROCKSDB_NAMESPACE::Transaction*>(jhandle);
+  ROCKSDB_NAMESPACE::Status s = txn->ScheduleFair(jtype, jappId);
+  if (!s.ok()) {
+    ROCKSDB_NAMESPACE::RocksDBExceptionJni::ThrowNew(env, s);
+  }
+}
+
+/*
+ * Class:     org_rocksdb_Transaction
  * Method:    prepare
  * Signature: (J)V
  */

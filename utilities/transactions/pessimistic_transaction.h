@@ -52,6 +52,8 @@ class PessimisticTransaction : public TransactionBaseImpl {
 
   // Status KeySchedule(int type, const std::vector<std::string>& keys) override;
 
+  Status ScheduleFair(int type, int appId) override;
+
   Status Prepare() override;
 
   Status Commit() override;
