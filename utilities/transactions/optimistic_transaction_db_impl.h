@@ -88,7 +88,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     new (&app_vt_)(decltype(app_vt_))();
     app_vt_.resize(num_clients_);
     new (&virtual_times_)(decltype(virtual_times_))();
-    for (int i = 0; i < num_clients_ + 1; ++i) {
+    for (int i = 0; i < num_clients_; ++i) {
       app_vt_[i] = i;
       virtual_times_[i] = i;
     }
@@ -769,16 +769,20 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
     if (cluster_hash_fair_[idx] != 0) {
       sched_counts_[idx]->fetch_add(1);
 
-      for (const auto& it : virtual_times_) {
-        uint16_t appId = it.second - 1;
+      bool released = false;
+      // for (const auto& it : virtual_times_) {
+      for(auto it = virtual_times_.begin(); it != virtual_times_.end(); ++it) {
+        uint16_t appId = it->second;
         std::cout << "iterating release_clust_fair cluster: " << idx << " appId: " << appId
-                  << " queued: " << cluster_hash_clients_[appId][idx].size() << std::endl;
-        if (cluster_hash_clients_[appId][idx].size() > 0) {
+                  << " queued: " << cluster_hash_clients_[appId][idx].size()
+                  << " usage: " << app_vt_[appId] << " vt usage: " << it->first << std::endl;
+        if (cluster_hash_clients_[appId][idx].size() > 0 && !released) {
           cluster_hash_clients_[appId][idx][0]->Callback(this);
           cluster_hash_clients_[appId][idx].erase(cluster_hash_clients_[appId][idx].begin());
           cluster_hash_fair_[idx]--;
           std::cout << "release_clust_fair cluster: " << idx << " appId: " << appId << std::endl;
-          break;
+          // break;
+          released = true;
         }
       }
       return true;
@@ -831,7 +835,8 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
     uint16_t appIdIndex = appId - 1;
     long old_val = app_vt_[appIdIndex];
-    virtual_times_.erase(old_val);
+    auto it = virtual_times_.find(old_val);
+    virtual_times_.erase(it);
     long new_val = old_val + usage;
     while (virtual_times_.find(new_val) != virtual_times_.end()) {
       new_val++;
@@ -1092,7 +1097,7 @@ class OptimisticTransactionDBImpl : public OptimisticTransactionDB {
 
   uint16_t num_clients_;
   std::vector<long> app_vt_; // <appId, vt>
-  std::map<uint16_t, long> virtual_times_; // <vt, appId>
+  std::map<long, uint16_t> virtual_times_; // <vt, appId>
 
   // Protected map of <cluster, callbacks>
   std::vector<std::mutex> cluster_hash_mutexes_;
