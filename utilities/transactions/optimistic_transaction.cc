@@ -196,8 +196,8 @@ void OptimisticTransaction::FreeLockFair() {
                                             OptimisticTransactionDB>(txn_db_);
   assert(txn_db_impl);
 
-  std::cout << "FreeLockFair cluster: " << this->GetCluster() << " appId: " << (this->GetAppId() - 1) << std::endl;
   if (this->GetCluster() != 0) { // (this->GetAppId() != 0) { // TBU
+    std::cout << "FreeLockFair cluster: " << this->GetCluster() << " appId: " << (this->GetAppId() - 1) << std::endl;
     txn_db_impl->NewSubCountFair(this->GetCluster(), this->GetAppId(), this->GetEndTime());
     this->SetCluster(0);
     this->SetAppId(0);
